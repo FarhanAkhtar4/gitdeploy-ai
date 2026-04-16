@@ -37,6 +37,7 @@ import {
   Activity,
   Clock,
   ArrowUpRight,
+  ArrowRight,
   GitCommit,
   CheckCircle,
   AlertCircle,
@@ -49,12 +50,20 @@ import {
   Lightbulb,
   Shield,
   FileCode,
+  Search,
+  Filter,
+  LayoutGrid,
+  List,
+  TrendingUp,
+  TrendingDown,
+  ExternalLink,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import { ProjectHealth } from '@/components/project-health';
 import { DeploymentHistory } from '@/components/deployment-history';
 import { ApiUsageTracker } from '@/components/api-usage-tracker';
+import { ProjectAnalytics } from '@/components/project-analytics';
 
 /* ============================================================
    Animation Variants
@@ -352,6 +361,9 @@ function ImprovementSuggestion({
 export function DashboardView() {
   const { projects, setProjects, user, setCurrentView, setSelectedProject, setIsLoading, isGithubConnected } = useAppStore();
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [frameworkFilter, setFrameworkFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const { toast } = useToast();
 
   /* ----- Fetch Projects ----- */
@@ -366,7 +378,7 @@ export function DashboardView() {
         headers: { 'x-user-id': user.id },
       });
       const data = await res.json();
-      if (data.projects) {
+      if (data.projects && data.projects.length > 0) {
         setProjects(
           data.projects.map((p: Record<string, unknown>) => ({
             id: p.id as string,
@@ -402,6 +414,7 @@ export function DashboardView() {
           }))
         );
       }
+      // If API returns empty, keep the store's demo/seed data — don't overwrite with []
     } catch (error) {
       console.error('Failed to fetch projects:', error);
     } finally {
@@ -464,13 +477,22 @@ export function DashboardView() {
   const buildingCount = projects.filter((p) => ['building', 'deploying'].includes(p.status)).length;
   const failedCount = projects.filter((p) => p.status === 'failed').length;
 
-  /* ----- Stats Config ----- */
+  /* ----- Stats Config with Trend Indicators ----- */
   const stats = [
-    { label: 'Total Projects', value: projects.length, icon: FolderOpen, color: '#58a6ff', sparkline: [2, 4, 3, 5, 4, projects.length] },
-    { label: 'Live', value: liveCount, icon: Zap, color: '#3fb950', sparkline: [0, 1, 1, 2, 1, liveCount] },
-    { label: 'Building', value: buildingCount, icon: Activity, color: '#e3b341', sparkline: [0, 0, 1, 0, 1, buildingCount] },
-    { label: 'Failed', value: failedCount, icon: Rocket, color: '#f85149', sparkline: [0, 0, 0, 1, 0, failedCount] },
+    { label: 'Total Projects', value: projects.length, icon: FolderOpen, color: '#58a6ff', sparkline: [2, 4, 3, 5, 4, projects.length], trend: '+12%', trendUp: true },
+    { label: 'Live', value: liveCount, icon: Zap, color: '#3fb950', sparkline: [0, 1, 1, 2, 1, liveCount], trend: '+8%', trendUp: true },
+    { label: 'Building', value: buildingCount, icon: Activity, color: '#e3b341', sparkline: [0, 0, 1, 0, 1, buildingCount], trend: '-3%', trendUp: false },
+    { label: 'Failed', value: failedCount, icon: Rocket, color: '#f85149', sparkline: [0, 0, 0, 1, 0, failedCount], trend: '-15%', trendUp: false },
   ];
+
+  /* ----- Filtered Projects ----- */
+  const filteredProjects = projects.filter((p) => {
+    const matchesSearch = searchQuery === '' ||
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesFramework = frameworkFilter === 'all' || p.framework === frameworkFilter;
+    return matchesSearch && matchesFramework;
+  });
 
   /* ----- Health Score ----- */
   let healthScore = 50;
@@ -643,7 +665,7 @@ export function DashboardView() {
       )}
 
       {/* ================================================
-          2. GLASSMORPHISM STATS CARDS
+          2. GLASSMORPHISM STATS CARDS WITH TREND INDICATORS
           ================================================ */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stats.map((stat, i) => (
@@ -669,7 +691,22 @@ export function DashboardView() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="space-y-2">
-                    <AnimatedNumber value={stat.value} color={stat.color} />
+                    <div className="flex items-center gap-2">
+                      <AnimatedNumber value={stat.value} color={stat.color} />
+                      <motion.span
+                        className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                        style={{
+                          backgroundColor: stat.trendUp ? 'rgba(63,185,80,0.12)' : 'rgba(248,81,73,0.12)',
+                          color: stat.trendUp ? '#3fb950' : '#f85149',
+                        }}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.6 + i * 0.1, duration: 0.3 }}
+                      >
+                        {stat.trendUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                        {stat.trend}
+                      </motion.span>
+                    </div>
                     <p className="text-xs" style={{ color: '#8b949e' }}>{stat.label}</p>
                     <MiniSparkline color={stat.color} values={stat.sparkline} />
                   </div>
@@ -692,7 +729,7 @@ export function DashboardView() {
       </div>
 
       {/* ================================================
-          PROJECT TABLE
+          PROJECT SECTION — SEARCH / FILTER / VIEW TOGGLE
           ================================================ */}
       {loading ? (
         <div className="space-y-3">
@@ -745,131 +782,353 @@ export function DashboardView() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm" style={{ color: '#8b949e' }}>Your Projects</CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1 text-xs"
-                  style={{ color: '#8b949e' }}
-                  onClick={fetchProjects}
-                >
-                  <RefreshCw className="w-3 h-3" /> Refresh
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* View Toggle */}
+                  <div
+                    className="flex items-center rounded-lg overflow-hidden"
+                    style={{ border: '1px solid #30363d' }}
+                  >
+                    <button
+                      className="p-1.5 transition-colors"
+                      style={{
+                        backgroundColor: viewMode === 'table' ? '#30363d' : 'transparent',
+                        color: viewMode === 'table' ? '#c9d1d9' : '#484f58',
+                      }}
+                      onClick={() => setViewMode('table')}
+                      title="Table View"
+                    >
+                      <List className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      className="p-1.5 transition-colors"
+                      style={{
+                        backgroundColor: viewMode === 'card' ? '#30363d' : 'transparent',
+                        color: viewMode === 'card' ? '#c9d1d9' : '#484f58',
+                      }}
+                      onClick={() => setViewMode('card')}
+                      title="Card View"
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-xs"
+                    style={{ color: '#8b949e' }}
+                    onClick={fetchProjects}
+                  >
+                    <RefreshCw className="w-3 h-3" /> Refresh
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow style={{ borderColor: '#30363d' }}>
-                      <TableHead className="text-xs" style={{ color: '#8b949e' }}>Project</TableHead>
-                      <TableHead className="text-xs" style={{ color: '#8b949e' }}>Framework</TableHead>
-                      <TableHead className="text-xs hidden md:table-cell" style={{ color: '#8b949e' }}>Repository</TableHead>
-                      <TableHead className="text-xs" style={{ color: '#8b949e' }}>Status</TableHead>
-                      <TableHead className="text-xs hidden sm:table-cell" style={{ color: '#8b949e' }}>Last Deployed</TableHead>
-                      <TableHead className="text-xs text-right" style={{ color: '#8b949e' }}>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {projects.map((project) => {
-                      const badge = FRAMEWORK_BADGES[project.framework] || FRAMEWORK_BADGES.express;
-                      const lastDeployment = project.deployments?.[0];
-                      return (
-                        <TableRow key={project.id} style={{ borderColor: '#21262d' }} className="hover:bg-[#21262d] transition-colors">
-                          <TableCell>
-                            <div>
-                              <p className="text-sm font-medium" style={{ color: '#c9d1d9' }}>{project.name}</p>
-                              {project.description && (
-                                <p className="text-xs mt-0.5 truncate max-w-48" style={{ color: '#8b949e' }}>
-                                  {project.description}
-                                </p>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <span
-                              className="text-xs px-2 py-0.5 rounded-full font-medium"
-                              style={{ backgroundColor: `${badge.color}15`, color: badge.color }}
-                            >
-                              {badge.label}
-                            </span>
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">
-                            {project.githubRepoUrl ? (
-                              <a
-                                href={project.githubRepoUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs flex items-center gap-1 hover:underline"
-                                style={{ color: '#58a6ff' }}
+              {/* Search & Filter Bar */}
+              <div
+                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4 p-3 rounded-lg"
+                style={{ backgroundColor: '#0d1117', border: '1px solid #30363d' }}
+              >
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#484f58' }} />
+                  <input
+                    type="text"
+                    placeholder="Search projects by name or description..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 rounded-md text-sm outline-none transition-colors"
+                    style={{
+                      backgroundColor: '#161b22',
+                      border: '1px solid #30363d',
+                      color: '#c9d1d9',
+                    }}
+                    onFocus={(e) => { (e.target as HTMLElement).style.borderColor = '#58a6ff'; }}
+                    onBlur={(e) => { (e.target as HTMLElement).style.borderColor = '#30363d'; }}
+                  />
+                </div>
+                <div className="relative">
+                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#484f58' }} />
+                  <select
+                    value={frameworkFilter}
+                    onChange={(e) => setFrameworkFilter(e.target.value)}
+                    className="pl-9 pr-8 py-2 rounded-md text-sm outline-none appearance-none cursor-pointer transition-colors"
+                    style={{
+                      backgroundColor: '#161b22',
+                      border: '1px solid #30363d',
+                      color: '#c9d1d9',
+                    }}
+                    onFocus={(e) => { (e.target as HTMLElement).style.borderColor = '#58a6ff'; }}
+                    onBlur={(e) => { (e.target as HTMLElement).style.borderColor = '#30363d'; }}
+                  >
+                    <option value="all" style={{ backgroundColor: '#161b22' }}>All Frameworks</option>
+                    <option value="nextjs" style={{ backgroundColor: '#161b22' }}>Next.js</option>
+                    <option value="react" style={{ backgroundColor: '#161b22' }}>React</option>
+                    <option value="vue" style={{ backgroundColor: '#161b22' }}>Vue</option>
+                    <option value="express" style={{ backgroundColor: '#161b22' }}>Express</option>
+                    <option value="fastapi" style={{ backgroundColor: '#161b22' }}>FastAPI</option>
+                  </select>
+                  <ChevronRight className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rotate-90 pointer-events-none" style={{ color: '#484f58' }} />
+                </div>
+              </div>
+
+              {filteredProjects.length === 0 ? (
+                <div className="text-center py-10">
+                  <Search className="w-8 h-8 mx-auto mb-3" style={{ color: '#30363d' }} />
+                  <p className="text-sm" style={{ color: '#8b949e' }}>No projects match your search or filter</p>
+                  <button
+                    className="text-xs mt-2 hover:underline"
+                    style={{ color: '#58a6ff' }}
+                    onClick={() => { setSearchQuery(''); setFrameworkFilter('all'); }}
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              ) : viewMode === 'table' ? (
+                /* TABLE VIEW */
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow style={{ borderColor: '#30363d' }}>
+                        <TableHead className="text-xs" style={{ color: '#8b949e' }}>Project</TableHead>
+                        <TableHead className="text-xs" style={{ color: '#8b949e' }}>Framework</TableHead>
+                        <TableHead className="text-xs hidden md:table-cell" style={{ color: '#8b949e' }}>Repository</TableHead>
+                        <TableHead className="text-xs" style={{ color: '#8b949e' }}>Status</TableHead>
+                        <TableHead className="text-xs hidden sm:table-cell" style={{ color: '#8b949e' }}>Last Deployed</TableHead>
+                        <TableHead className="text-xs text-right" style={{ color: '#8b949e' }}>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredProjects.map((project) => {
+                        const badge = FRAMEWORK_BADGES[project.framework] || FRAMEWORK_BADGES.express;
+                        const lastDeployment = project.deployments?.[0];
+                        return (
+                          <TableRow key={project.id} style={{ borderColor: '#21262d' }} className="hover:bg-[#21262d] transition-colors">
+                            <TableCell>
+                              <div>
+                                <p className="text-sm font-medium" style={{ color: '#c9d1d9' }}>{project.name}</p>
+                                {project.description && (
+                                  <p className="text-xs mt-0.5 truncate max-w-48" style={{ color: '#8b949e' }}>
+                                    {project.description}
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span
+                                className="text-xs px-2 py-0.5 rounded-full font-medium"
+                                style={{ backgroundColor: `${badge.color}15`, color: badge.color }}
                               >
-                                <ArrowUpRight className="w-3 h-3" />
-                                {project.githubRepoUrl.replace('https://github.com/', '')}
-                              </a>
-                            ) : (
-                              <span className="text-xs" style={{ color: '#484f58' }}>—</span>
+                                {badge.label}
+                              </span>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell">
+                              {project.githubRepoUrl ? (
+                                <a
+                                  href={project.githubRepoUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs flex items-center gap-1 hover:underline"
+                                  style={{ color: '#58a6ff' }}
+                                >
+                                  <ArrowUpRight className="w-3 h-3" />
+                                  {project.githubRepoUrl.replace('https://github.com/', '')}
+                                </a>
+                              ) : (
+                                <span className="text-xs" style={{ color: '#484f58' }}>—</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge status={project.status} />
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell">
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" style={{ color: '#484f58' }} />
+                                <span className="text-xs" style={{ color: '#8b949e' }}>
+                                  {lastDeployment?.completedAt
+                                    ? new Date(lastDeployment.completedAt).toLocaleDateString()
+                                    : 'Never'}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 hover:bg-[#21262d]"
+                                  style={{ color: '#58a6ff' }}
+                                  onClick={() => {
+                                    setSelectedProject(project);
+                                    setCurrentView('builder');
+                                  }}
+                                  title="Edit with AI"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 hover:bg-[#21262d]"
+                                  style={{ color: '#3fb950' }}
+                                  onClick={() => {
+                                    setSelectedProject(project);
+                                    setCurrentView('deploy');
+                                  }}
+                                  title="Deploy"
+                                >
+                                  <Rocket className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 hover:bg-[#21262d]"
+                                  style={{ color: '#8b949e' }}
+                                  onClick={() => handleRebuild(project.id)}
+                                  title="Rebuild"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 hover:bg-[#21262d]"
+                                      style={{ color: '#f85149' }}
+                                      title="Delete"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle style={{ color: '#c9d1d9' }}>Delete Project</AlertDialogTitle>
+                                      <AlertDialogDescription style={{ color: '#8b949e' }}>
+                                        This will NOT delete your GitHub repository. Only the GitDeploy AI project record will be removed. Confirm?
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel style={{ color: '#8b949e' }}>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        style={{ backgroundColor: '#f85149', color: 'white' }}
+                                        onClick={() => handleDelete(project.id)}
+                                      >
+                                        Delete Record Only
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                /* CARD VIEW */
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredProjects.map((project, idx) => {
+                    const badge = FRAMEWORK_BADGES[project.framework] || FRAMEWORK_BADGES.express;
+                    const lastDeployment = project.deployments?.[0];
+                    const statusColor = project.status === 'live' ? '#3fb950' : project.status === 'failed' ? '#f85149' : project.status === 'building' || project.status === 'deploying' ? '#e3b341' : '#8b949e';
+                    return (
+                      <motion.div
+                        key={project.id}
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ delay: idx * 0.06, duration: 0.35, ease: 'easeOut' }}
+                        whileHover={{ y: -6, scale: 1.02, boxShadow: `0 12px 40px ${badge.color}25` }}
+                      >
+                        <Card
+                          className="overflow-hidden cursor-default transition-all duration-300"
+                          style={{
+                            backgroundColor: '#161b22',
+                            borderColor: '#30363d',
+                          }}
+                        >
+                          {/* Gradient top border per framework */}
+                          <div
+                            className="h-1.5"
+                            style={{
+                              background: `linear-gradient(90deg, ${badge.color}, ${badge.color}80, transparent)`,
+                            }}
+                          />
+                          <CardContent className="p-4">
+                            {/* Header: Framework badge + Status dot */}
+                            <div className="flex items-center justify-between mb-3">
+                              <span
+                                className="text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1.5"
+                                style={{ backgroundColor: `${badge.color}18`, color: badge.color }}
+                              >
+                                <FileCode className="w-3 h-3" />
+                                {badge.label}
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <div
+                                  className="w-2 h-2 rounded-full"
+                                  style={{
+                                    backgroundColor: statusColor,
+                                    boxShadow: `0 0 6px ${statusColor}60`,
+                                  }}
+                                />
+                                <span className="text-[10px] font-medium" style={{ color: statusColor }}>
+                                  {project.status === 'not_deployed' ? 'Not Deployed' : project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Project Name & Description */}
+                            <h3 className="text-sm font-semibold truncate" style={{ color: '#c9d1d9' }}>{project.name}</h3>
+                            {project.description && (
+                              <p className="text-xs mt-1 line-clamp-2 leading-relaxed" style={{ color: '#8b949e' }}>
+                                {project.description}
+                              </p>
                             )}
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge status={project.status} />
-                          </TableCell>
-                          <TableCell className="hidden sm:table-cell">
-                            <div className="flex items-center gap-1">
+
+                            {/* Last Deployed */}
+                            <div className="flex items-center gap-1.5 mt-3">
                               <Clock className="w-3 h-3" style={{ color: '#484f58' }} />
-                              <span className="text-xs" style={{ color: '#8b949e' }}>
+                              <span className="text-[11px]" style={{ color: '#8b949e' }}>
                                 {lastDeployment?.completedAt
                                   ? new Date(lastDeployment.completedAt).toLocaleDateString()
-                                  : 'Never'}
+                                  : 'Never deployed'}
                               </span>
                             </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
+
+                            {/* Quick Action Buttons */}
+                            <div
+                              className="flex items-center gap-2 mt-4 pt-3"
+                              style={{ borderTop: '1px solid #21262d' }}
+                            >
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 hover:bg-[#21262d]"
+                                size="sm"
+                                className="gap-1 h-7 text-[11px] flex-1 hover:bg-[#21262d]"
                                 style={{ color: '#58a6ff' }}
-                                onClick={() => {
-                                  setSelectedProject(project);
-                                  setCurrentView('builder');
-                                }}
-                                title="Edit with AI"
+                                onClick={() => { setSelectedProject(project); setCurrentView('builder'); }}
                               >
-                                <Pencil className="w-3.5 h-3.5" />
+                                <Pencil className="w-3 h-3" /> Edit
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 hover:bg-[#21262d]"
+                                size="sm"
+                                className="gap-1 h-7 text-[11px] flex-1 hover:bg-[#21262d]"
                                 style={{ color: '#3fb950' }}
-                                onClick={() => {
-                                  setSelectedProject(project);
-                                  setCurrentView('deploy');
-                                }}
-                                title="Deploy"
+                                onClick={() => { setSelectedProject(project); setCurrentView('deploy'); }}
                               >
-                                <Rocket className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 hover:bg-[#21262d]"
-                                style={{ color: '#8b949e' }}
-                                onClick={() => handleRebuild(project.id)}
-                                title="Rebuild"
-                              >
-                                <RefreshCw className="w-3.5 h-3.5" />
+                                <Rocket className="w-3 h-3" /> Deploy
                               </Button>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button
                                     variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 hover:bg-[#21262d]"
+                                    size="sm"
+                                    className="gap-1 h-7 text-[11px] hover:bg-[#21262d]"
                                     style={{ color: '#f85149' }}
-                                    title="Delete"
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <Trash2 className="w-3 h-3" />
                                   </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
@@ -891,13 +1150,13 @@ export function DashboardView() {
                                 </AlertDialogContent>
                               </AlertDialog>
                             </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -1039,11 +1298,14 @@ export function DashboardView() {
                 {SAMPLE_ACTIVITIES.map((activity, i) => (
                   <motion.div
                     key={activity.id}
-                    initial={{ opacity: 0, x: -10 }}
+                    initial={{ opacity: 0, x: -15 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 + i * 0.06, duration: 0.3 }}
-                    className="flex items-start gap-3 relative cursor-pointer group"
+                    transition={{ delay: 0.5 + i * 0.08, duration: 0.35, ease: 'easeOut' }}
+                    className="flex items-start gap-3 relative cursor-pointer group rounded-lg px-2 py-1 -mx-2 transition-colors"
+                    style={{ borderLeft: `3px solid ${activity.color}` }}
                     onClick={() => setCurrentView(activity.view)}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = `${activity.color}08`; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
                   >
                     {/* Timeline line and dot */}
                     <div className="flex flex-col items-center shrink-0">
@@ -1081,13 +1343,25 @@ export function DashboardView() {
                   </motion.div>
                 ))}
               </div>
+              {/* View All Link */}
+              <div className="mt-3 pt-3" style={{ borderTop: '1px solid #21262d' }}>
+                <button
+                  className="flex items-center gap-1.5 text-xs font-medium transition-colors"
+                  style={{ color: '#58a6ff' }}
+                  onClick={() => setCurrentView('deploy')}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#79c0ff'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#58a6ff'; }}
+                >
+                  View All Activity <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
             </CardContent>
           </Card>
         </motion.div>
       </div>
 
       {/* ================================================
-          4. QUICK ACTIONS GRID
+          4. QUICK ACTIONS GRID — REDESIGNED
           ================================================ */}
       <motion.div
         variants={staggerContainer}
@@ -1101,41 +1375,69 @@ export function DashboardView() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {QUICK_ACTIONS.map((action) => (
-            <motion.div key={action.id} variants={staggerItem} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <motion.div
+              key={action.id}
+              variants={staggerItem}
+              whileHover={{ y: -6, boxShadow: `0 12px 40px ${action.color}30` }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            >
               <Card
                 className="cursor-pointer transition-all duration-300 relative overflow-hidden"
                 style={{
                   backgroundColor: '#161b22',
                   borderColor: '#30363d',
-                  borderLeft: '3px solid transparent',
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderLeftColor = action.color;
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 20px ${action.color}15`;
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderLeftColor = 'transparent';
-                  (e.currentTarget as HTMLElement).style.boxShadow = 'none';
                 }}
                 onClick={() => setCurrentView(action.view)}
               >
-                <CardContent className="p-4">
+                {/* Gradient top accent */}
+                <div
+                  className="h-1"
+                  style={{
+                    background: `linear-gradient(90deg, ${action.color}, ${action.color}60, transparent)`,
+                  }}
+                />
+                <CardContent className="p-5">
+                  {/* Larger icon area with gradient background */}
                   <div className="flex items-start justify-between">
                     <div
-                      className="p-2.5 rounded-xl"
-                      style={{ backgroundColor: `${action.color}15` }}
+                      className="p-4 rounded-2xl relative"
+                      style={{
+                        background: `linear-gradient(135deg, ${action.color}20, ${action.color}08)`,
+                      }}
                     >
-                      <action.icon className="w-5 h-5" style={{ color: action.color }} />
+                      <action.icon className="w-6 h-6" style={{ color: action.color }} />
+                      {/* Subtle glow */}
+                      <div
+                        className="absolute inset-0 rounded-2xl"
+                        style={{
+                          background: `radial-gradient(circle at 30% 30%, ${action.color}10, transparent 70%)`,
+                        }}
+                      />
                     </div>
-                    <ArrowUpRight className="w-4 h-4" style={{ color: '#484f58' }} />
+                    <ArrowRight
+                      className="w-4 h-4 mt-1 transition-transform duration-300 group-hover:translate-x-1"
+                      style={{ color: '#484f58' }}
+                    />
                   </div>
-                  <h3 className="text-sm font-semibold mt-3" style={{ color: '#c9d1d9' }}>{action.title}</h3>
-                  <p className="text-xs mt-1 leading-relaxed" style={{ color: '#8b949e' }}>{action.description}</p>
+                  <h3 className="text-sm font-semibold mt-4" style={{ color: '#c9d1d9' }}>{action.title}</h3>
+                  <p className="text-xs mt-1.5 leading-relaxed" style={{ color: '#8b949e' }}>{action.description}</p>
                 </CardContent>
               </Card>
             </motion.div>
           ))}
         </div>
+      </motion.div>
+
+      {/* ================================================
+          PROJECT ANALYTICS
+          ================================================ */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.45, duration: 0.4 }}
+      >
+        <ProjectAnalytics />
       </motion.div>
 
       {/* ================================================

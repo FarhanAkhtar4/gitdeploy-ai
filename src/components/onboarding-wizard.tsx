@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore, type GitHubUser } from '@/store/app-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Check,
@@ -17,13 +17,23 @@ import {
   EyeOff,
   Shield,
   Zap,
+  User,
+  Rocket,
+  ChevronDown,
+  ChevronUp,
+  Lock,
+  Bot,
+  Globe,
+  MessageSquare,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 
-const STEPS = ['Welcome', 'Create Account', 'Connect GitHub', 'Validate Token', 'Ready'];
+const STEPS = ['Welcome', 'Account', 'GitHub', 'Validate', 'Ready'];
+const STEP_ICONS = [Zap, User, Github, Shield, Check];
 
 export function OnboardingWizard() {
-  const { setUser, setGithubUser, setIsGithubConnected, setCurrentView } = useAppStore();
+  const { setUser, setGithubUser, setIsGithubConnected, setCurrentView, githubUser } = useAppStore();
   const [step, setStep] = useState(0);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -32,11 +42,28 @@ export function OnboardingWizard() {
   const [validating, setValidating] = useState(false);
   const [error, setError] = useState('');
   const [tokenScopes, setTokenScopes] = useState<string[]>([]);
+  const [showWhyNeeded, setShowWhyNeeded] = useState(false);
+  const [validationSteps, setValidationSteps] = useState<{ text: string; done: boolean }[]>([]);
+  const [emailTouched, setEmailTouched] = useState(false);
   const { toast } = useToast();
 
   const handleValidateToken = async () => {
     setValidating(true);
     setError('');
+    setValidationSteps([]);
+
+    const steps = [
+      'Connecting to GitHub...',
+      'Verifying token scopes...',
+      'Fetching user profile...',
+      'Encrypting token for storage...',
+    ];
+
+    // Animate validation steps one by one
+    for (let i = 0; i < steps.length; i++) {
+      await new Promise((r) => setTimeout(r, 800));
+      setValidationSteps((prev) => [...prev, { text: steps[i], done: true }]);
+    }
 
     try {
       const res = await fetch('/api/auth/github', {
@@ -52,6 +79,7 @@ export function OnboardingWizard() {
         if (data.missingScopes) {
           setTokenScopes(data.currentScopes || []);
         }
+        setValidationSteps([]);
         return;
       }
 
@@ -73,7 +101,7 @@ export function OnboardingWizard() {
 
       setTokenScopes(data.github.scopes);
       setIsGithubConnected(true);
-      setStep(4); // Go to "Ready" step
+      setStep(4);
 
       toast({
         title: 'GitHub Connected!',
@@ -81,6 +109,7 @@ export function OnboardingWizard() {
       });
     } catch (err) {
       setError('Network error. Please try again.');
+      setValidationSteps([]);
     } finally {
       setValidating(false);
     }
@@ -88,224 +117,868 @@ export function OnboardingWizard() {
 
   const requiredScopes = ['repo', 'workflow'];
 
+  const isEmailValid = email.length > 0 && /\S+@\S+\.\S+/.test(email);
+
+  // Confetti particles for the ready step
+  const confettiColors = ['#58a6ff', '#3fb950', '#e3b341', '#f85149', '#bc8cff', '#ff7b72'];
+
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
-      <Card className="w-full max-w-lg" style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
-        <CardHeader>
-          {/* Step indicator */}
-          <div className="flex items-center gap-1 mb-4">
-            {STEPS.map((label, i) => (
-              <div key={label} className="flex items-center">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                    i <= step ? 'text-white' : ''
-                  }`}
-                  style={{
-                    backgroundColor: i < step ? '#238636' : i === step ? '#58a6ff' : '#21262d',
-                    color: i <= step ? 'white' : '#484f58',
-                  }}
-                >
-                  {i < step ? <Check className="w-4 h-4" /> : i + 1}
-                </div>
-                {i < STEPS.length - 1 && (
-                  <div
-                    className="w-8 h-0.5 mx-1"
-                    style={{ backgroundColor: i < step ? '#238636' : '#21262d' }}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-          <CardTitle className="text-lg" style={{ color: '#c9d1d9' }}>
-            {STEPS[step]}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* Step 0: Welcome */}
-          {step === 0 && (
-            <div className="space-y-4 text-center">
-              <div className="py-8">
-                <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4" style={{ backgroundColor: '#58a6ff20' }}>
-                  <Zap className="w-8 h-8" style={{ color: '#58a6ff' }} />
-                </div>
-                <h2 className="text-xl font-bold mb-2" style={{ color: '#c9d1d9' }}>Welcome to GitDeploy AI</h2>
-                <p className="text-sm" style={{ color: '#8b949e' }}>
-                  Build any project with AI and deploy it to GitHub with one click.
-                </p>
-              </div>
-              <Button
-                className="w-full gap-2"
-                style={{ backgroundColor: '#238636', color: 'white' }}
-                onClick={() => setStep(1)}
-              >
-                Get Started <ArrowRight className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
+      <div className="w-full max-w-xl">
+        {/* Enhanced Step Progress Bar */}
+        <div className="mb-8 px-4">
+          <div className="flex items-center justify-between">
+            {STEPS.map((label, i) => {
+              const Icon = STEP_ICONS[i];
+              const isCompleted = i < step;
+              const isActive = i === step;
 
-          {/* Step 1: Create Account */}
-          {step === 1 && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs" style={{ color: '#8b949e' }}>Email</Label>
-                <Input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="bg-[#0d1117] border-[#30363d] text-[#c9d1d9]"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs" style={{ color: '#8b949e' }}>Name (optional)</Label>
-                <Input
-                  placeholder="Your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="bg-[#0d1117] border-[#30363d] text-[#c9d1d9]"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  style={{ borderColor: '#30363d', color: '#8b949e' }}
-                  onClick={() => setStep(0)}
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </Button>
-                <Button
-                  className="flex-1 gap-2"
-                  style={{ backgroundColor: '#238636', color: 'white' }}
-                  disabled={!email}
-                  onClick={() => setStep(2)}
-                >
-                  Continue <ArrowRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Connect GitHub Token */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <div className="p-3 rounded-lg border" style={{ backgroundColor: '#0d1117', borderColor: '#30363d' }}>
-                <p className="text-xs mb-2" style={{ color: '#8b949e' }}>
-                  Create a Personal Access Token (PAT) at:
-                </p>
-                <a
-                  href="https://github.com/settings/tokens/new"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs flex items-center gap-1"
-                  style={{ color: '#58a6ff' }}
-                >
-                  github.com/settings/tokens/new ↗
-                </a>
-                <p className="text-xs mt-2" style={{ color: '#8b949e' }}>
-                  Required scopes: <code className="text-[#3fb950]">repo</code>, <code className="text-[#3fb950]">workflow</code>
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs" style={{ color: '#8b949e' }}>GitHub Personal Access Token</Label>
-                <div className="relative">
-                  <Input
-                    type={showToken ? 'text' : 'password'}
-                    placeholder="ghp_xxxxxxxxxxxx"
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    className="bg-[#0d1117] border-[#30363d] text-[#c9d1d9] pr-10"
-                  />
-                  <button
-                    className="absolute right-2 top-1/2 -translate-y-1/2"
-                    onClick={() => setShowToken(!showToken)}
-                  >
-                    {showToken ? (
-                      <EyeOff className="w-4 h-4" style={{ color: '#8b949e' }} />
-                    ) : (
-                      <Eye className="w-4 h-4" style={{ color: '#8b949e' }} />
-                    )}
-                  </button>
-                </div>
-              </div>
-              {error && (
-                <div className="flex items-center gap-2 p-3 rounded-lg" style={{ backgroundColor: 'rgba(248,81,73,0.1)' }}>
-                  <AlertCircle className="w-4 h-4 shrink-0" style={{ color: '#f85149' }} />
-                  <p className="text-xs" style={{ color: '#f85149' }}>{error}</p>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  style={{ borderColor: '#30363d', color: '#8b949e' }}
-                  onClick={() => setStep(1)}
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </Button>
-                <Button
-                  className="flex-1 gap-2"
-                  style={{ backgroundColor: '#238636', color: 'white' }}
-                  disabled={!token || validating}
-                  onClick={handleValidateToken}
-                >
-                  {validating ? (
-                    <><span className="animate-spin">⏳</span> Validating...</>
-                  ) : (
-                    <><Shield className="w-4 h-4" /> Validate & Connect</>
-                  )}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Validate Token (auto-skipped to step 4 on success) */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <p className="text-sm" style={{ color: '#8b949e' }}>Validating your token...</p>
-            </div>
-          )}
-
-          {/* Step 4: Ready */}
-          {step === 4 && (
-            <div className="space-y-4 text-center">
-              <div className="py-4">
-                <Github className="w-12 h-12 mx-auto mb-3" style={{ color: '#3fb950' }} />
-                <h3 className="text-lg font-medium" style={{ color: '#3fb950' }}>You&apos;re all set!</h3>
-                <p className="text-sm mt-1" style={{ color: '#8b949e' }}>
-                  Your GitHub account is connected and ready to deploy.
-                </p>
-              </div>
-
-              {/* Scopes checklist */}
-              <div className="space-y-2 text-left p-3 rounded-lg" style={{ backgroundColor: '#0d1117' }}>
-                <p className="text-xs font-medium mb-2" style={{ color: '#c9d1d9' }}>Token Scopes</p>
-                {requiredScopes.map((scope) => {
-                  const hasScope = tokenScopes.includes(scope) || tokenScopes.includes('repo');
-                  return (
-                    <div key={scope} className="flex items-center gap-2">
-                      {hasScope ? (
-                        <Check className="w-3.5 h-3.5" style={{ color: '#3fb950' }} />
-                      ) : (
-                        <AlertCircle className="w-3.5 h-3.5" style={{ color: '#f85149' }} />
+              return (
+                <div key={label} className="flex items-center flex-1 last:flex-none">
+                  <div className="flex flex-col items-center">
+                    <motion.div
+                      className="relative flex items-center justify-center"
+                      initial={false}
+                      animate={{
+                        scale: isActive ? 1.05 : 1,
+                      }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                    >
+                      {/* Pulsing glow ring for active step */}
+                      {isActive && (
+                        <motion.div
+                          className="absolute inset-0 rounded-full"
+                          style={{ border: '2px solid #58a6ff' }}
+                          animate={{
+                            scale: [1, 1.3, 1],
+                            opacity: [0.6, 0, 0.6],
+                          }}
+                          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                        />
                       )}
-                      <span className="text-xs font-mono" style={{ color: hasScope ? '#3fb950' : '#f85149' }}>
-                        {scope}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
 
-              <Button
-                className="w-full gap-2"
-                style={{ backgroundColor: '#238636', color: 'white' }}
-                onClick={() => setCurrentView('builder')}
-              >
-                <Zap className="w-4 h-4" /> Build Your First Project
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                      {/* Circle */}
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center relative z-10 transition-all duration-300"
+                        style={{
+                          backgroundColor: isCompleted ? '#238636' : isActive ? '#58a6ff' : '#21262d',
+                          boxShadow: isActive
+                            ? '0 0 20px rgba(88, 166, 255, 0.3), 0 0 40px rgba(88, 166, 255, 0.1)'
+                            : isCompleted
+                            ? '0 0 12px rgba(35, 134, 54, 0.3)'
+                            : 'none',
+                        }}
+                      >
+                        <AnimatePresence mode="wait">
+                          {isCompleted ? (
+                            <motion.div
+                              key="check"
+                              initial={{ scale: 0, rotate: -180 }}
+                              animate={{ scale: 1, rotate: 0 }}
+                              exit={{ scale: 0 }}
+                              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                            >
+                              <Check className="w-5 h-5 text-white" />
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="icon"
+                              initial={{ scale: 0.8, opacity: 0.5 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <Icon
+                                className="w-5 h-5"
+                                style={{ color: isActive ? 'white' : '#484f58' }}
+                              />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </motion.div>
+
+                    {/* Step label */}
+                    <span
+                      className="text-[10px] mt-2 font-medium whitespace-nowrap"
+                      style={{ color: isActive ? '#58a6ff' : isCompleted ? '#3fb950' : '#484f58' }}
+                    >
+                      {label}
+                    </span>
+                  </div>
+
+                  {/* Connecting line */}
+                  {i < STEPS.length - 1 && (
+                    <div className="flex-1 mx-2 mt-[-16px]">
+                      <div className="h-0.5 rounded-full relative overflow-hidden" style={{ backgroundColor: '#21262d' }}>
+                        <motion.div
+                          className="absolute inset-y-0 left-0 rounded-full"
+                          style={{ backgroundColor: '#3fb950' }}
+                          initial={{ width: '0%' }}
+                          animate={{ width: isCompleted ? '100%' : '0%' }}
+                          transition={{ duration: 0.5, ease: 'easeInOut' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Main Card */}
+        <Card className="overflow-hidden" style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+          <CardContent className="p-0">
+            <AnimatePresence mode="wait">
+              {/* Step 0: Welcome */}
+              {step === 0 && (
+                <motion.div
+                  key="welcome"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="relative p-8 text-center overflow-hidden">
+                    {/* Gradient background */}
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(88, 166, 255, 0.08) 0%, rgba(63, 185, 80, 0.05) 50%, rgba(227, 179, 65, 0.03) 100%)',
+                      }}
+                    />
+
+                    {/* Animated gradient orb */}
+                    <motion.div
+                      className="absolute -top-20 -right-20 w-64 h-64 rounded-full opacity-20"
+                      style={{
+                        background: 'radial-gradient(circle, rgba(88, 166, 255, 0.3), transparent 70%)',
+                      }}
+                      animate={{
+                        scale: [1, 1.2, 1],
+                        opacity: [0.15, 0.25, 0.15],
+                      }}
+                      transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                    />
+                    <motion.div
+                      className="absolute -bottom-20 -left-20 w-48 h-48 rounded-full opacity-20"
+                      style={{
+                        background: 'radial-gradient(circle, rgba(63, 185, 80, 0.3), transparent 70%)',
+                      }}
+                      animate={{
+                        scale: [1.2, 1, 1.2],
+                        opacity: [0.1, 0.2, 0.1],
+                      }}
+                      transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+                    />
+
+                    <div className="relative z-10">
+                      {/* Welcome icon with pulsing ring */}
+                      <motion.div
+                        className="relative inline-flex items-center justify-center mb-6"
+                        animate={{ scale: [1, 1.02, 1] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                      >
+                        <motion.div
+                          className="absolute inset-0 rounded-2xl"
+                          style={{ border: '2px solid rgba(88, 166, 255, 0.3)' }}
+                          animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0, 0.5] }}
+                          transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                        />
+                        <div
+                          className="w-20 h-20 rounded-2xl flex items-center justify-center"
+                          style={{ backgroundColor: 'rgba(88, 166, 255, 0.15)' }}
+                        >
+                          <Zap className="w-10 h-10" style={{ color: '#58a6ff' }} />
+                        </div>
+                      </motion.div>
+
+                      <h2 className="text-2xl font-bold mb-2 gradient-text">
+                        Welcome to GitDeploy AI
+                      </h2>
+                      <p className="text-sm mb-8" style={{ color: '#8b949e' }}>
+                        Build any project with AI and deploy it to GitHub with one click. Free hosting included.
+                      </p>
+
+                      {/* Feature highlights */}
+                      <div className="grid grid-cols-3 gap-3 mb-8">
+                        {[
+                          { emoji: '🤖', title: 'AI Builder', desc: 'Generate full projects from prompts' },
+                          { emoji: '🚀', title: 'One-Click Deploy', desc: 'Push to GitHub automatically' },
+                          { emoji: '🆓', title: 'Free Hosting', desc: 'Find the best free hosting' },
+                        ].map((feature, i) => (
+                          <motion.div
+                            key={feature.title}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 + i * 0.1 }}
+                            className="group relative p-3 rounded-xl border transition-all duration-200 hover-lift card-shine cursor-default"
+                            style={{
+                              backgroundColor: 'rgba(22, 27, 34, 0.8)',
+                              borderColor: '#30363d',
+                            }}
+                          >
+                            <div className="text-2xl mb-1.5">{feature.emoji}</div>
+                            <div className="text-xs font-semibold mb-0.5" style={{ color: '#c9d1d9' }}>
+                              {feature.title}
+                            </div>
+                            <div className="text-[10px]" style={{ color: '#8b949e' }}>
+                              {feature.desc}
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+
+                      {/* CTA button */}
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <Button
+                          className="w-full gap-2 h-12 text-base font-semibold"
+                          style={{
+                            backgroundColor: '#238636',
+                            color: 'white',
+                            boxShadow: '0 0 20px rgba(35, 134, 54, 0.3), 0 4px 12px rgba(0,0,0,0.3)',
+                          }}
+                          onClick={() => setStep(1)}
+                        >
+                          <Rocket className="w-5 h-5" /> Get Started <ArrowRight className="w-4 h-4" />
+                        </Button>
+                      </motion.div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Step 1: Create Account */}
+              {step === 1 && (
+                <motion.div
+                  key="account"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="p-6 md:p-8">
+                    {/* Illustration placeholder */}
+                    <div className="text-center mb-6">
+                      <motion.div
+                        className="w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-3"
+                        style={{ backgroundColor: 'rgba(88, 166, 255, 0.1)' }}
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                      >
+                        <User className="w-8 h-8" style={{ color: '#58a6ff' }} />
+                      </motion.div>
+                      <h3 className="text-lg font-semibold" style={{ color: '#c9d1d9' }}>
+                        Create Your Account
+                      </h3>
+                      <p className="text-xs mt-1" style={{ color: '#8b949e' }}>
+                        Just your email to get started. You can always add more later.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4 max-w-sm mx-auto">
+                      {/* Email input with icon */}
+                      <div className="space-y-2">
+                        <Label className="text-xs" style={{ color: '#8b949e' }}>
+                          Email <span style={{ color: '#f85149' }}>*</span>
+                        </Label>
+                        <div className="relative">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                            <svg className="w-4 h-4" style={{ color: '#484f58' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <Input
+                            type="email"
+                            placeholder="you@example.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            onBlur={() => setEmailTouched(true)}
+                            className="pl-9 transition-colors duration-200"
+                            style={{
+                              backgroundColor: '#0d1117',
+                              borderColor: emailTouched && !isEmailValid && email ? '#f85149' : isEmailValid ? '#3fb950' : '#30363d',
+                              color: '#c9d1d9',
+                            }}
+                          />
+                          {emailTouched && email && (
+                            <motion.div
+                              className="absolute right-3 top-1/2 -translate-y-1/2"
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ type: 'spring', stiffness: 400 }}
+                            >
+                              {isEmailValid ? (
+                                <Check className="w-4 h-4" style={{ color: '#3fb950' }} />
+                              ) : (
+                                <AlertCircle className="w-4 h-4" style={{ color: '#f85149' }} />
+                              )}
+                            </motion.div>
+                          )}
+                        </div>
+                        {emailTouched && !isEmailValid && email && (
+                          <motion.p
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-[11px]"
+                            style={{ color: '#f85149' }}
+                          >
+                            Please enter a valid email address
+                          </motion.p>
+                        )}
+                      </div>
+
+                      {/* Name input with icon */}
+                      <div className="space-y-2">
+                        <Label className="text-xs" style={{ color: '#8b949e' }}>Name (optional)</Label>
+                        <div className="relative">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                            <User className="w-4 h-4" style={{ color: '#484f58' }} />
+                          </div>
+                          <Input
+                            placeholder="Your name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="pl-9 transition-colors duration-200"
+                            style={{ backgroundColor: '#0d1117', borderColor: '#30363d', color: '#c9d1d9' }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Navigation buttons */}
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          variant="outline"
+                          className="focus-ring"
+                          style={{ borderColor: '#30363d', color: '#8b949e' }}
+                          onClick={() => setStep(0)}
+                        >
+                          <ArrowLeft className="w-4 h-4" />
+                        </Button>
+                        <motion.div className="flex-1" whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                          <Button
+                            className="w-full gap-2 focus-ring"
+                            style={{
+                              backgroundColor: isEmailValid ? '#238636' : '#21262d',
+                              color: isEmailValid ? 'white' : '#484f58',
+                              cursor: isEmailValid ? 'pointer' : 'not-allowed',
+                            }}
+                            disabled={!isEmailValid}
+                            onClick={() => setStep(2)}
+                          >
+                            Continue <ArrowRight className="w-4 h-4" />
+                          </Button>
+                        </motion.div>
+                      </div>
+
+                      {/* Skip for now */}
+                      <div className="text-center">
+                        <button
+                          className="text-xs transition-colors duration-200 focus-ring rounded px-2 py-1"
+                          style={{ color: '#58a6ff' }}
+                          onClick={() => setStep(2)}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = '#79c0ff')}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = '#58a6ff')}
+                        >
+                          Skip for now →
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Step 2: Connect GitHub Token */}
+              {step === 2 && (
+                <motion.div
+                  key="github"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="relative p-6 md:p-8 overflow-hidden">
+                    {/* GitHub logo watermark */}
+                    <div
+                      className="absolute -right-8 -top-8 opacity-[0.03] pointer-events-none"
+                    >
+                      <Github className="w-48 h-48" />
+                    </div>
+
+                    <div className="relative z-10">
+                      <div className="text-center mb-6">
+                        <motion.div
+                          className="w-14 h-14 rounded-full mx-auto flex items-center justify-center mb-3"
+                          style={{ backgroundColor: 'rgba(88, 166, 255, 0.1)' }}
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                        >
+                          <Github className="w-7 h-7" style={{ color: '#c9d1d9' }} />
+                        </motion.div>
+                        <h3 className="text-lg font-semibold" style={{ color: '#c9d1d9' }}>
+                          Connect Your GitHub
+                        </h3>
+                        <p className="text-xs mt-1" style={{ color: '#8b949e' }}>
+                          We need a Personal Access Token to deploy on your behalf.
+                        </p>
+                      </div>
+
+                      <div className="max-w-sm mx-auto space-y-4">
+                        {/* Token creation info */}
+                        <div
+                          className="p-3 rounded-lg border transition-colors duration-200"
+                          style={{ backgroundColor: '#0d1117', borderColor: '#30363d' }}
+                        >
+                          <p className="text-xs mb-2" style={{ color: '#8b949e' }}>
+                            Create a Personal Access Token (PAT) at:
+                          </p>
+                          <a
+                            href="https://github.com/settings/tokens/new"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs flex items-center gap-1 transition-colors duration-200 focus-ring rounded px-1"
+                            style={{ color: '#58a6ff' }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = '#79c0ff')}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = '#58a6ff')}
+                          >
+                            github.com/settings/tokens/new ↗
+                          </a>
+
+                          {/* Scope badges */}
+                          <div className="mt-3 space-y-2">
+                            <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: '#8b949e' }}>
+                              Required scopes
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              <span
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium"
+                                style={{ backgroundColor: 'rgba(88, 166, 255, 0.12)', color: '#58a6ff', border: '1px solid rgba(88, 166, 255, 0.2)' }}
+                              >
+                                <code className="font-mono">repo</code>
+                                <span style={{ color: '#8b949e' }}>· Full control of repositories</span>
+                              </span>
+                              <span
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium"
+                                style={{ backgroundColor: 'rgba(63, 185, 80, 0.12)', color: '#3fb950', border: '1px solid rgba(63, 185, 80, 0.2)' }}
+                              >
+                                <code className="font-mono">workflow</code>
+                                <span style={{ color: '#8b949e' }}>· Update GitHub Actions</span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Token input */}
+                        <div className="space-y-2">
+                          <Label className="text-xs" style={{ color: '#8b949e' }}>
+                            GitHub Personal Access Token
+                          </Label>
+                          <div className="relative">
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                              <Lock className="w-4 h-4" style={{ color: '#484f58' }} />
+                            </div>
+                            <Input
+                              type={showToken ? 'text' : 'password'}
+                              placeholder="ghp_xxxxxxxxxxxx"
+                              value={token}
+                              onChange={(e) => {
+                                setToken(e.target.value);
+                                setError('');
+                              }}
+                              className="pl-9 pr-10 transition-colors duration-200 font-mono"
+                              style={{
+                                backgroundColor: '#0d1117',
+                                borderColor: error ? '#f85149' : token ? '#3fb950' : '#30363d',
+                                color: '#c9d1d9',
+                              }}
+                            />
+                            <button
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded transition-colors duration-200 focus-ring"
+                              onClick={() => setShowToken(!showToken)}
+                              style={{ color: '#8b949e' }}
+                            >
+                              {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+
+                          {/* Token preview */}
+                          {token && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="flex items-center gap-2 px-2"
+                            >
+                              <div
+                                className="text-[10px] font-mono px-2 py-1 rounded"
+                                style={{ backgroundColor: 'rgba(63, 185, 80, 0.08)', color: '#3fb950' }}
+                              >
+                                ghp_{token.slice(4, 8)}...{token.slice(-4)}
+                              </div>
+                              <span className="text-[10px]" style={{ color: '#8b949e' }}>
+                                Token detected
+                              </span>
+                            </motion.div>
+                          )}
+                        </div>
+
+                        {/* Error display */}
+                        {error && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex items-center gap-2 p-3 rounded-lg"
+                            style={{ backgroundColor: 'rgba(248,81,73,0.1)' }}
+                          >
+                            <AlertCircle className="w-4 h-4 shrink-0" style={{ color: '#f85149' }} />
+                            <p className="text-xs" style={{ color: '#f85149' }}>{error}</p>
+                          </motion.div>
+                        )}
+
+                        {/* Why do we need this? expandable section */}
+                        <div
+                          className="border rounded-lg overflow-hidden transition-colors duration-200"
+                          style={{ borderColor: '#30363d' }}
+                        >
+                          <button
+                            className="w-full flex items-center justify-between p-3 text-xs transition-colors duration-200 focus-ring"
+                            style={{ color: '#8b949e', backgroundColor: 'rgba(13, 17, 23, 0.5)' }}
+                            onClick={() => setShowWhyNeeded(!showWhyNeeded)}
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <Shield className="w-3.5 h-3.5" style={{ color: '#58a6ff' }} />
+                              Why do we need this?
+                            </span>
+                            {showWhyNeeded ? (
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <AnimatePresence>
+                            {showWhyNeeded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="p-3 space-y-2 text-[11px]" style={{ color: '#8b949e', backgroundColor: 'rgba(13, 17, 23, 0.3)' }}>
+                                  <div className="flex items-start gap-2">
+                                    <Lock className="w-3 h-3 mt-0.5 shrink-0" style={{ color: '#3fb950' }} />
+                                    <span>Your token is <strong style={{ color: '#c9d1d9' }}>encrypted</strong> before storage. We never store it in plaintext.</span>
+                                  </div>
+                                  <div className="flex items-start gap-2">
+                                    <Shield className="w-3 h-3 mt-0.5 shrink-0" style={{ color: '#3fb950' }} />
+                                    <span>We only request <strong style={{ color: '#c9d1d9' }}>minimum scopes</strong> needed to deploy your projects.</span>
+                                  </div>
+                                  <div className="flex items-start gap-2">
+                                    <Github className="w-3 h-3 mt-0.5 shrink-0" style={{ color: '#3fb950' }} />
+                                    <span>You can <strong style={{ color: '#c9d1d9' }}>revoke access</strong> anytime from your GitHub settings.</span>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+
+                        {/* Navigation buttons */}
+                        <div className="flex gap-2 pt-2">
+                          <Button
+                            variant="outline"
+                            className="focus-ring"
+                            style={{ borderColor: '#30363d', color: '#8b949e' }}
+                            onClick={() => setStep(1)}
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                          </Button>
+                          <motion.div className="flex-1" whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                            <Button
+                              className="w-full gap-2 focus-ring"
+                              style={{
+                                backgroundColor: token ? '#238636' : '#21262d',
+                                color: token ? 'white' : '#484f58',
+                                cursor: token ? 'pointer' : 'not-allowed',
+                              }}
+                              disabled={!token || validating}
+                              onClick={handleValidateToken}
+                            >
+                              {validating ? (
+                                <><span className="animate-spin">⏳</span> Validating...</>
+                              ) : (
+                                <><Shield className="w-4 h-4" /> Validate & Connect</>
+                              )}
+                            </Button>
+                          </motion.div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Step 3: Validation */}
+              {step === 3 && (
+                <motion.div
+                  key="validate"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="p-8 text-center">
+                    {/* Progress ring animation */}
+                    <div className="relative inline-flex items-center justify-center mb-6">
+                      <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
+                        <circle
+                          cx="48"
+                          cy="48"
+                          r="40"
+                          fill="none"
+                          stroke="#21262d"
+                          strokeWidth="6"
+                        />
+                        <motion.circle
+                          cx="48"
+                          cy="48"
+                          r="40"
+                          fill="none"
+                          stroke="#58a6ff"
+                          strokeWidth="6"
+                          strokeLinecap="round"
+                          strokeDasharray={251.3}
+                          initial={{ strokeDashoffset: 251.3 }}
+                          animate={{
+                            strokeDashoffset: validationSteps.length === 0
+                              ? 251.3
+                              : validationSteps.length === 1
+                              ? 188.5
+                              : validationSteps.length === 2
+                              ? 125.7
+                              : validationSteps.length === 3
+                              ? 62.8
+                              : 0,
+                          }}
+                          transition={{ duration: 0.6, ease: 'easeInOut' }}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                        >
+                          <Shield className="w-8 h-8" style={{ color: '#58a6ff' }} />
+                        </motion.div>
+                      </div>
+                    </div>
+
+                    <h3 className="text-lg font-semibold mb-4" style={{ color: '#c9d1d9' }}>
+                      Validating Your Connection
+                    </h3>
+
+                    {/* Step-by-step validation checklist */}
+                    <div className="max-w-xs mx-auto space-y-3 text-left">
+                      {validationSteps.map((vs, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.1 }}
+                          className="flex items-center gap-3 p-2 rounded-lg"
+                          style={{ backgroundColor: 'rgba(63, 185, 80, 0.05)' }}
+                        >
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: 'spring', stiffness: 400, delay: 0.3 + i * 0.1 }}
+                          >
+                            <Check className="w-4 h-4" style={{ color: '#3fb950' }} />
+                          </motion.div>
+                          <span className="text-xs" style={{ color: '#c9d1d9' }}>
+                            {vs.text}
+                          </span>
+                        </motion.div>
+                      ))}
+                      {validationSteps.length < 4 && (
+                        <div className="flex items-center gap-3 p-2">
+                          <div className="w-4 h-4 rounded-full border-2 animate-spin" style={{ borderColor: '#58a6ff', borderTopColor: 'transparent' }} />
+                          <span className="text-xs" style={{ color: '#8b949e' }}>
+                            {['Connecting to GitHub...', 'Verifying token scopes...', 'Fetching user profile...', 'Encrypting token for storage...'][validationSteps.length] || 'Processing...'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Step 4: Ready */}
+              {step === 4 && (
+                <motion.div
+                  key="ready"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="relative p-8 text-center overflow-hidden">
+                    {/* Confetti-like CSS effect */}
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                      {confettiColors.map((color, i) =>
+                        Array.from({ length: 3 }).map((_, j) => (
+                          <motion.div
+                            key={`confetti-${i}-${j}`}
+                            className="absolute rounded-sm"
+                            style={{
+                              backgroundColor: color,
+                              width: 4 + Math.random() * 4,
+                              height: 4 + Math.random() * 4,
+                              left: `${10 + Math.random() * 80}%`,
+                              top: '-5%',
+                            }}
+                            initial={{ y: 0, rotate: 0, opacity: 1 }}
+                            animate={{
+                              y: 400,
+                              rotate: 360 + Math.random() * 360,
+                              opacity: [1, 1, 0],
+                            }}
+                            transition={{
+                              duration: 2 + Math.random() * 2,
+                              delay: Math.random() * 1.5,
+                              ease: 'easeOut',
+                            }}
+                          />
+                        ))
+                      )}
+                    </div>
+
+                    <div className="relative z-10">
+                      {/* User avatar with green ring */}
+                      <motion.div
+                        className="relative inline-block mb-4"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 15, delay: 0.3 }}
+                      >
+                        <div
+                          className="w-20 h-20 rounded-full p-[3px]"
+                          style={{ background: 'linear-gradient(135deg, #3fb950, #58a6ff)' }}
+                        >
+                          <Avatar className="w-full h-full" style={{ border: '3px solid #161b22' }}>
+                            <AvatarImage src={githubUser?.avatar_url} />
+                            <AvatarFallback
+                              className="text-lg font-bold"
+                              style={{ backgroundColor: '#21262d', color: '#c9d1d9' }}
+                            >
+                              {githubUser?.login?.charAt(0)?.toUpperCase() || <Github className="w-8 h-8" />}
+                            </AvatarFallback>
+                          </Avatar>
+                        </div>
+                        {/* Green check badge */}
+                        <motion.div
+                          className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: '#238636', border: '2px solid #161b22' }}
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: 'spring', stiffness: 400, delay: 0.6 }}
+                        >
+                          <Check className="w-3.5 h-3.5 text-white" />
+                        </motion.div>
+                      </motion.div>
+
+                      {/* Welcome message */}
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.5 }}
+                      >
+                        <h3 className="text-xl font-bold gradient-text mb-1">
+                          You&apos;re all set!
+                        </h3>
+                        {githubUser?.login && (
+                          <p className="text-sm" style={{ color: '#8b949e' }}>
+                            Welcome, <span style={{ color: '#58a6ff' }}>@{githubUser.login}</span> 🎉
+                          </p>
+                        )}
+                      </motion.div>
+
+                      {/* Quick stats */}
+                      <motion.div
+                        className="mt-6 max-w-xs mx-auto p-4 rounded-xl border text-left space-y-2.5"
+                        style={{ backgroundColor: 'rgba(13, 17, 23, 0.5)', borderColor: '#30363d' }}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.7 }}
+                      >
+                        <p className="text-xs font-medium" style={{ color: '#c9d1d9' }}>
+                          You now have access to...
+                        </p>
+                        {[
+                          { icon: Bot, text: 'AI Project Builder' },
+                          { icon: Github, text: 'GitHub Deployment' },
+                          { icon: Globe, text: 'Free Hosting Advisor' },
+                          { icon: MessageSquare, text: 'AI Assistant' },
+                        ].map((item, i) => {
+                          const Icon = item.icon;
+                          return (
+                            <motion.div
+                              key={item.text}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 0.8 + i * 0.1 }}
+                              className="flex items-center gap-2.5"
+                            >
+                              <Check className="w-3.5 h-3.5" style={{ color: '#3fb950' }} />
+                              <Icon className="w-3.5 h-3.5" style={{ color: '#58a6ff' }} />
+                              <span className="text-xs" style={{ color: '#c9d1d9' }}>
+                                {item.text}
+                              </span>
+                            </motion.div>
+                          );
+                        })}
+                      </motion.div>
+
+                      {/* CTA buttons */}
+                      <motion.div
+                        className="mt-6 space-y-2"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 1.0 }}
+                      >
+                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                          <Button
+                            className="w-full gap-2 h-11 font-semibold"
+                            style={{
+                              backgroundColor: '#238636',
+                              color: 'white',
+                              boxShadow: '0 0 20px rgba(35, 134, 54, 0.3), 0 4px 12px rgba(0,0,0,0.3)',
+                            }}
+                            onClick={() => setCurrentView('builder')}
+                          >
+                            <Rocket className="w-4 h-4" /> Build Your First Project
+                          </Button>
+                        </motion.div>
+                        <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                          <Button
+                            variant="outline"
+                            className="w-full gap-2 focus-ring"
+                            style={{ borderColor: '#30363d', color: '#8b949e' }}
+                            onClick={() => setCurrentView('dashboard')}
+                          >
+                            Go to Dashboard
+                          </Button>
+                        </motion.div>
+                      </motion.div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

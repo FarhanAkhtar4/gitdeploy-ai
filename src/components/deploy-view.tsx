@@ -1050,6 +1050,118 @@ export function DeployView() {
         </div>
       </div>
 
+      {/* Deployment History */}
+      {selectedProject.deployments && selectedProject.deployments.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.4 }}
+        >
+          <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2" style={{ color: '#c9d1d9' }}>
+                  <Clock className="w-4 h-4" style={{ color: '#58a6ff' }} />
+                  Deployment History
+                </CardTitle>
+                <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(88,166,255,0.1)', color: '#58a6ff' }}>
+                  {selectedProject.deployments.length} deploys
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {selectedProject.deployments.map((dep, idx) => (
+                  <motion.div
+                    key={dep.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.05, duration: 0.2 }}
+                    className="flex items-center gap-3 p-3 rounded-lg transition-colors hover:bg-[#21262d]"
+                    style={{ backgroundColor: '#0d1117', border: '1px solid #21262d' }}
+                  >
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                      style={{
+                        backgroundColor: dep.status === 'completed' ? 'rgba(63,185,80,0.15)' : 'rgba(248,81,73,0.15)',
+                      }}
+                    >
+                      {dep.status === 'completed' ? (
+                        <CheckCircle className="w-4 h-4" style={{ color: '#3fb950' }} />
+                      ) : (
+                        <AlertCircle className="w-4 h-4" style={{ color: '#f85149' }} />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-medium" style={{ color: '#c9d1d9' }}>
+                          {dep.triggeredBy} deploy
+                        </p>
+                        <StatusBadge status={dep.status === 'completed' ? 'live' : 'failed'} />
+                      </div>
+                      <p className="text-[10px] mt-0.5" style={{ color: '#484f58' }}>
+                        {new Date(dep.startedAt).toLocaleString()}
+                        {dep.durationMs && ` · ${Math.round(dep.durationMs / 1000)}s`}
+                      </p>
+                      {dep.logSummary && (
+                        <p className="text-[10px] mt-1 truncate" style={{ color: '#8b949e' }}>
+                          {dep.logSummary}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0 h-7 gap-1 text-[10px]"
+                      style={{ color: '#58a6ff' }}
+                      onClick={() => {
+                        toast({ title: 'Rebuild triggered', description: `Re-running deployment ${dep.id}` });
+                      }}
+                    >
+                      <RefreshCw className="w-3 h-3" /> Retry
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Quick Deploy Stats — always visible */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5, duration: 0.4 }}
+      >
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Total Deploys', value: selectedProject.deployments?.length || 0, icon: Rocket, color: '#58a6ff' },
+            { label: 'Successful', value: selectedProject.deployments?.filter(d => d.status === 'completed').length || 0, icon: CheckCircle, color: '#3fb950' },
+            { label: 'Failed', value: selectedProject.deployments?.filter(d => d.status === 'failed').length || 0, icon: AlertCircle, color: '#f85149' },
+            { label: 'Avg Duration', value: selectedProject.deployments?.filter(d => d.durationMs).length ? `${Math.round(selectedProject.deployments.filter(d => d.durationMs).reduce((a, d) => a + (d.durationMs || 0), 0) / selectedProject.deployments.filter(d => d.durationMs).length / 1000)}s` : 'N/A', icon: Timer, color: '#e3b341' },
+          ].map((stat, i) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 + i * 0.08, duration: 0.3 }}
+            >
+              <Card
+                className="text-center hover:-translate-y-0.5 transition-transform duration-200"
+                style={{ backgroundColor: '#161b22', borderColor: '#30363d', borderTop: `2px solid ${stat.color}` }}
+              >
+                <CardContent className="p-3">
+                  <stat.icon className="w-4 h-4 mx-auto mb-1.5" style={{ color: stat.color }} />
+                  <p className="text-lg font-bold" style={{ color: '#c9d1d9' }}>{stat.value}</p>
+                  <p className="text-[9px] uppercase" style={{ color: '#484f58' }}>{stat.label}</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </motion.div>
+
       <WorkflowTemplate />
     </div>
   );

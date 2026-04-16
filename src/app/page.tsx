@@ -100,7 +100,7 @@ export default function GitDeployAI() {
         <SidebarNav />
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto min-w-0 gradient-mesh" style={{ backgroundColor: '#0d1117' }}>
+        <main className="flex-1 overflow-y-auto min-w-0 gradient-mesh smooth-scroll" style={{ backgroundColor: '#0d1117' }}>
           <div className="p-4 md:p-6 pb-24 md:pb-6 relative z-10">
             <AnimatePresence mode="wait">
               <motion.div
@@ -119,9 +119,14 @@ export default function GitDeployAI() {
 
       {/* Sticky Footer */}
       <footer
-        className="mt-auto border-t px-4 md:px-6 py-3"
-        style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}
+        className="mt-auto px-4 md:px-6 py-3 relative"
+        style={{ backgroundColor: '#161b22' }}
       >
+        {/* Gradient top border */}
+        <div
+          className="absolute top-0 left-0 right-0 h-px"
+          style={{ background: 'linear-gradient(90deg, transparent, #58a6ff, #3fb950, #e3b341, transparent)' }}
+        />
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#3fb950' }} />

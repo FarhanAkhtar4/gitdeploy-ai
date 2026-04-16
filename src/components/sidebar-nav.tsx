@@ -36,12 +36,12 @@ import {
 } from '@/components/ui/sheet';
 
 const NAV_ITEMS: Array<{ view: AppView; label: string; icon: React.ElementType; badge?: string; desc?: string; unread?: number }> = [
-  { view: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, desc: 'Overview & stats' },
+  { view: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, desc: 'Stats & activity' },
   { view: 'builder', label: 'Project Builder', icon: Wrench, badge: 'AI', desc: 'Build with AI' },
-  { view: 'deploy', label: 'Deploy', icon: Rocket, desc: 'Push to GitHub' },
-  { view: 'hosting', label: 'Hosting', icon: Globe, badge: 'Free', desc: 'Free hosting options' },
-  { view: 'chat', label: 'AI Assistant', icon: MessageSquare, desc: 'Ask anything', unread: 3 },
-  { view: 'settings', label: 'Settings', icon: Settings, desc: 'Account & config' },
+  { view: 'deploy', label: 'Deploy', icon: Rocket, desc: 'GitHub deploy' },
+  { view: 'hosting', label: 'Hosting', icon: Globe, badge: 'Free', desc: 'Free tiers' },
+  { view: 'chat', label: 'AI Assistant', icon: MessageSquare, desc: 'Get help', unread: 3 },
+  { view: 'settings', label: 'Settings', icon: Settings, desc: 'Account' },
 ];
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
@@ -107,10 +107,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               <Icon className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-[#58a6ff]' : 'group-hover:text-[#c9d1d9]'}`} />
               {sidebarOpen && (
                 <>
-                  <div className="flex-1 text-left">
-                    <span>{item.label}</span>
+                  <div className="flex-1 min-w-0 text-left">
+                    <span className="whitespace-nowrap overflow-hidden">{item.label}</span>
                     {isActive && item.desc && (
-                      <p className="text-[10px] mt-0.5" style={{ color: '#8b949e' }}>{item.desc}</p>
+                      <p className="text-[10px] mt-0.5 truncate" style={{ color: '#8b949e' }}>{item.desc}</p>
                     )}
                   </div>
                   {item.badge && (
@@ -278,7 +278,7 @@ export function SidebarNav() {
       <TooltipProvider delayDuration={0}>
         <div
           className={`hidden md:flex transition-all duration-300 ${
-            sidebarOpen ? 'w-64' : 'w-16'
+            sidebarOpen ? 'w-[272px]' : 'w-16'
           }`}
         >
           <SidebarContent />
