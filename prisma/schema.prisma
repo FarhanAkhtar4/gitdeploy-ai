@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  name            String?
+  github_username String?
+  avatar_url      String?
+  plan            String   @default("free")
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  credentials      GitHubCredential[]
+  projects         Project[]
+  audit_logs       AuditLog[]
+}
+
+model GitHubCredential {
+  id             String   @id @default(cuid())
+  user_id        String
+  encrypted_token String
+  iv             String
+  auth_tag       String
+  token_hint     String
+  scopes         String   @default("")
+  validated_at   DateTime?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id                String   @id @default(cuid())
+  user_id           String
+  name              String
+  description       String   @default("")
+  github_repo_url   String?
+  live_url          String?
+  framework         String   @default("nextjs")
+  stack_json        String   @default("{}")
+  default_branch    String   @default("main")
+  workflow_filename String   @default("deploy.yml")
+  schedule_cron     String?
+  schedule_timezone String   @default("UTC")
+  status            String   @default("not_deployed")
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  user          User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  files         ProjectFile[]
+  deployments   Deployment[]
+  hosting_config HostingConfig?
+}
+
+model ProjectFile {
+  id            String   @id @default(cuid())
+  project_id    String
+  file_path     String
+  content       String   @default("")
+  github_sha    String?
+  last_pushed_at DateTime?
+  size_bytes    Int      @default(0)
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@unique([project_id, file_path])
+}
+
+model Deployment {
+  id            String   @id @default(cuid())
+  project_id    String
+  triggered_by  String   @default("manual")
+  github_run_id String?
+  status        String   @default("pending")
+  started_at    DateTime @default(now())
+  completed_at  DateTime?
+  duration_ms   Int?
+  log_summary   String?
+  error_message String?
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+}
+
+model HostingConfig {
+  id               String   @id @default(cuid())
+  project_id       String   @unique
+  platform         String   @default("vercel")
+  frontend_url     String?
+  backend_url      String?
+  database_url_hint String?
+  configured_at    DateTime @default(now())
+  last_verified_at DateTime?
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  user_id     String
+  action      String
+  entity_type String?
+  entity_id   String?
+  metadata    String   @default("{}")
+  created_at  DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
