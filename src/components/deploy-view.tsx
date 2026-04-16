@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { StatusBadge } from '@/components/status-badge';
 import { DeploymentScheduler } from '@/components/deployment-scheduler';
 import { WorkflowTemplate } from '@/components/workflow-template';
+import { EnvManager } from '@/components/env-manager';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -1021,6 +1022,9 @@ export function DeployView() {
               ))}
             </CardContent>
           </Card>
+
+          {/* Environment Variable Manager */}
+          <EnvManager />
 
           {/* Deploy readiness checklist */}
           <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>

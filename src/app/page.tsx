@@ -14,6 +14,16 @@ import { CommandPalette } from '@/components/command-palette';
 import { FileViewer } from '@/components/file-viewer';
 import { KeyboardShortcuts } from '@/components/keyboard-shortcuts';
 import { AnimatePresence, motion } from 'framer-motion';
+import {
+  LayoutDashboard,
+  Hammer,
+  Rocket,
+  Globe,
+  MessageCircle,
+  Settings,
+  ArrowLeft,
+  Sparkles,
+} from 'lucide-react';
 
 export default function GitDeployAI() {
   const {
@@ -72,6 +82,17 @@ export default function GitDeployAI() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [setKeyboardShortcutsOpen, setCommandPaletteOpen, setCurrentView, selectedProject]);
 
+  // Breadcrumb header view metadata
+  const viewMeta: Record<AppView, { label: string; description: string; icon: React.ElementType; shortcut: string }> = {
+    dashboard: { label: 'Dashboard', description: 'Stats & activity', icon: LayoutDashboard, shortcut: '⌘1' },
+    onboarding: { label: 'Setup', description: 'Get started', icon: Sparkles, shortcut: '' },
+    builder: { label: 'Builder', description: 'Build with AI', icon: Hammer, shortcut: '⌘2' },
+    deploy: { label: 'Deploy', description: 'Ship to production', icon: Rocket, shortcut: '⌘3' },
+    hosting: { label: 'Hosting', description: 'Find free hosting', icon: Globe, shortcut: '⌘4' },
+    chat: { label: 'Chat', description: 'AI assistant', icon: MessageCircle, shortcut: '⌘5' },
+    settings: { label: 'Settings', description: 'Configure account', icon: Settings, shortcut: '⌘6' },
+  };
+
   const renderView = () => {
     switch (currentView) {
       case 'dashboard':
@@ -99,22 +120,132 @@ export default function GitDeployAI() {
       <div className="flex flex-1 min-h-0">
         <SidebarNav />
 
-        {/* Content */}
-        <main className="flex-1 overflow-y-auto min-w-0 gradient-mesh smooth-scroll" style={{ backgroundColor: '#0d1117' }}>
-          <div className="p-4 md:p-6 pb-24 md:pb-6 relative z-10">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentView}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25, ease: 'easeInOut' }}
-              >
-                {renderView()}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </main>
+        {/* Right column: breadcrumb header + main content */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+          {/* Breadcrumb Navigation Header */}
+          <AnimatePresence mode="wait">
+            <motion.header
+              key={currentView}
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              className="flex items-center justify-between px-4 md:px-6 py-3 relative shrink-0"
+              style={{
+                backgroundColor: '#161b22',
+                borderBottom: '1px solid #30363d',
+              }}
+            >
+              {/* Left: back link + view name + description */}
+              <div className="flex items-center gap-3 min-w-0">
+                {/* Back link when not on dashboard */}
+                {currentView !== 'dashboard' && currentView !== 'onboarding' && (
+                  <motion.button
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -8 }}
+                    transition={{ duration: 0.15 }}
+                    onClick={() => setCurrentView('dashboard')}
+                    className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors duration-150 shrink-0"
+                    style={{ color: '#8b949e' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = '#58a6ff';
+                      e.currentTarget.style.backgroundColor = 'rgba(88, 166, 255, 0.08)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = '#8b949e';
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Back</span>
+                  </motion.button>
+                )}
+
+                {/* Separator */}
+                {currentView !== 'dashboard' && currentView !== 'onboarding' && (
+                  <div className="w-px h-4 shrink-0" style={{ backgroundColor: '#30363d' }} />
+                )}
+
+                {/* View icon + name */}
+                <div className="flex items-center gap-2 min-w-0">
+                  {(() => {
+                    const meta = viewMeta[currentView];
+                    const Icon = meta.icon;
+                    return (
+                      <>
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: 'rgba(88, 166, 255, 0.1)' }}
+                        >
+                          <Icon className="w-4 h-4" style={{ color: '#58a6ff' }} />
+                        </div>
+                        <div className="min-w-0">
+                          <h1 className="text-sm font-semibold leading-tight" style={{ color: '#c9d1d9' }}>
+                            {meta.label}
+                          </h1>
+                          <p className="text-[11px] leading-tight truncate" style={{ color: '#8b949e' }}>
+                            {meta.description}
+                          </p>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Right: keyboard shortcut hints */}
+              <div className="hidden md:flex items-center gap-3 shrink-0">
+                {viewMeta[currentView].shortcut && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px]" style={{ color: '#484f58' }}>Navigate</span>
+                    <kbd
+                      className="px-1.5 py-0.5 rounded text-[10px] font-mono border"
+                      style={{ borderColor: '#30363d', backgroundColor: '#21262d', color: '#8b949e' }}
+                    >
+                      {viewMeta[currentView].shortcut}
+                    </kbd>
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px]" style={{ color: '#484f58' }}>Search</span>
+                  <kbd
+                    className="px-1.5 py-0.5 rounded text-[10px] font-mono border"
+                    style={{ borderColor: '#30363d', backgroundColor: '#21262d', color: '#8b949e' }}
+                  >
+                    ⌘K
+                  </kbd>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px]" style={{ color: '#484f58' }}>Shortcuts</span>
+                  <kbd
+                    className="px-1.5 py-0.5 rounded text-[10px] font-mono border"
+                    style={{ borderColor: '#30363d', backgroundColor: '#21262d', color: '#8b949e' }}
+                  >
+                    ?
+                  </kbd>
+                </div>
+              </div>
+            </motion.header>
+          </AnimatePresence>
+
+          {/* Main Content */}
+          <main className="flex-1 overflow-y-auto min-w-0 gradient-mesh smooth-scroll" style={{ backgroundColor: '#0d1117' }}>
+            <div className="p-4 md:p-6 pb-24 md:pb-6 relative z-10">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentView}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.25, ease: 'easeInOut' }}
+                >
+                  {renderView()}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </main>
+        </div>
       </div>
 
       {/* Sticky Footer */}
