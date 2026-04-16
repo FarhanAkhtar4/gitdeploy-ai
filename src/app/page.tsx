@@ -12,21 +12,9 @@ import { ChatView } from '@/components/chat-view';
 import { SettingsView } from '@/components/settings-view';
 
 export default function GitDeployAI() {
-  const { currentView, user, isGithubConnected } = useAppStore();
-
-  // Auto-redirect to onboarding if no user or GitHub not connected
-  useEffect(() => {
-    if (!user && currentView !== 'onboarding') {
-      // Don't override if already on onboarding
-    }
-  }, [user, currentView]);
+  const { currentView, user, isGithubConnected, sidebarOpen } = useAppStore();
 
   const renderView = () => {
-    // If no user and not on onboarding, show onboarding
-    if (!user && currentView !== 'onboarding') {
-      // Show dashboard with onboarding prompt
-    }
-
     switch (currentView) {
       case 'dashboard':
         return <DashboardView />;
@@ -50,13 +38,13 @@ export default function GitDeployAI() {
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#0d1117' }}>
       {/* Main Layout */}
-      <div className="flex flex-1">
-        {/* Sidebar */}
+      <div className="flex flex-1 min-h-0">
+        {/* Sidebar — desktop: always visible, mobile: sheet */}
         <SidebarNav />
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto" style={{ backgroundColor: '#0d1117' }}>
-          <div className="p-6">
+        <main className="flex-1 overflow-y-auto min-w-0" style={{ backgroundColor: '#0d1117' }}>
+          <div className="p-4 md:p-6 pb-24 md:pb-6">
             {renderView()}
           </div>
         </main>
@@ -64,18 +52,21 @@ export default function GitDeployAI() {
 
       {/* Sticky Footer */}
       <footer
-        className="mt-auto border-t px-6 py-3"
+        className="mt-auto border-t px-4 md:px-6 py-3"
         style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}
       >
-        <div className="flex items-center justify-between">
-          <p className="text-xs" style={{ color: '#484f58' }}>
-            GitDeploy AI — Build any project with AI, deploy to GitHub, host for free
-          </p>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#3fb950' }} />
+            <p className="text-xs" style={{ color: '#484f58' }}>
+              GitDeploy AI — Build any project with AI, deploy to GitHub, host for free
+            </p>
+          </div>
           <div className="flex items-center gap-4">
-            <span className="text-xs" style={{ color: '#484f58' }}>
+            <span className="text-[10px]" style={{ color: '#484f58' }}>
               Powered by z-ai-web-dev-sdk
             </span>
-            <span className="text-xs" style={{ color: '#484f58' }}>
+            <span className="text-[10px]" style={{ color: '#484f58' }}>
               © 2025 GitDeploy AI
             </span>
           </div>
