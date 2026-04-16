@@ -46,6 +46,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import { ProjectHealth } from '@/components/project-health';
+import { DeploymentHistory } from '@/components/deployment-history';
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useAppStore } from '@/store/app-store';
+import { useAppStore, type AppView } from '@/store/app-store';
 import { SidebarNav } from '@/components/sidebar-nav';
 import { DashboardView } from '@/components/dashboard-view';
 import { OnboardingWizard } from '@/components/onboarding-wizard';
@@ -12,10 +12,65 @@ import { ChatView } from '@/components/chat-view';
 import { SettingsView } from '@/components/settings-view';
 import { CommandPalette } from '@/components/command-palette';
 import { FileViewer } from '@/components/file-viewer';
+import { KeyboardShortcuts } from '@/components/keyboard-shortcuts';
 import { AnimatePresence, motion } from 'framer-motion';
 
 export default function GitDeployAI() {
-  const { currentView, user, isGithubConnected, sidebarOpen } = useAppStore();
+  const {
+    currentView,
+    isGithubConnected,
+    selectedProject,
+    setKeyboardShortcutsOpen,
+    setCommandPaletteOpen,
+    setCurrentView,
+  } = useAppStore();
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      // ? key — open keyboard shortcuts
+      if (e.key === '?' && !isInput) {
+        e.preventDefault();
+        setKeyboardShortcutsOpen(true);
+      }
+
+      // Cmd/Ctrl + K — command palette
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(true);
+      }
+
+      // Cmd/Ctrl + N — new project
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+        e.preventDefault();
+        setCurrentView('builder');
+      }
+
+      // Cmd/Ctrl + D — deploy
+      if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+        e.preventDefault();
+        if (selectedProject) {
+          setCurrentView('deploy');
+        }
+      }
+
+      // Cmd/Ctrl + 1-6 — navigate views
+      if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '6') {
+        e.preventDefault();
+        const views: AppView[] = ['dashboard', 'builder', 'deploy', 'hosting', 'chat', 'settings'];
+        const index = parseInt(e.key) - 1;
+        if (views[index]) {
+          setCurrentView(views[index]);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setKeyboardShortcutsOpen, setCommandPaletteOpen, setCurrentView, selectedProject]);
 
   const renderView = () => {
     switch (currentView) {
@@ -42,7 +97,6 @@ export default function GitDeployAI() {
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#0d1117' }}>
       {/* Main Layout */}
       <div className="flex flex-1 min-h-0">
-        {/* Sidebar — desktop: always visible, mobile: sheet */}
         <SidebarNav />
 
         {/* Content */}
@@ -77,7 +131,7 @@ export default function GitDeployAI() {
           </div>
           <div className="flex items-center gap-4">
             <span className="text-[10px] hidden sm:inline" style={{ color: '#484f58' }}>
-              Press <kbd className="px-1 py-0.5 rounded text-[9px] font-mono border" style={{ borderColor: '#30363d', backgroundColor: '#21262d' }}>⌘K</kbd> to search
+              Press <kbd className="px-1 py-0.5 rounded text-[9px] font-mono border" style={{ borderColor: '#30363d', backgroundColor: '#21262d' }}>⌘K</kbd> to search · <kbd className="px-1 py-0.5 rounded text-[9px] font-mono border" style={{ borderColor: '#30363d', backgroundColor: '#21262d' }}>?</kbd> for shortcuts
             </span>
             <span className="text-[10px]" style={{ color: '#484f58' }}>
               Powered by z-ai-web-dev-sdk
@@ -92,6 +146,7 @@ export default function GitDeployAI() {
       {/* Global Overlays */}
       <CommandPalette />
       <FileViewer />
+      <KeyboardShortcuts />
     </div>
   );
 }

@@ -144,9 +144,17 @@ interface AppState {
   commandPaletteOpen: boolean;
   setCommandPaletteOpen: (open: boolean) => void;
 
+  // Keyboard Shortcuts
+  keyboardShortcutsOpen: boolean;
+  setKeyboardShortcutsOpen: (open: boolean) => void;
+
   // File Viewer
   selectedFile: SelectedFile | null;
   setSelectedFile: (file: SelectedFile | null) => void;
+
+  // Keyboard Shortcuts
+  keyboardShortcutsOpen: boolean;
+  setKeyboardShortcutsOpen: (open: boolean) => void;
 
   // UI
   sidebarOpen: boolean;
@@ -260,9 +268,17 @@ export const useAppStore = create<AppState>((set) => ({
   commandPaletteOpen: false,
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
 
+  // Keyboard Shortcuts
+  keyboardShortcutsOpen: false,
+  setKeyboardShortcutsOpen: (open) => set({ keyboardShortcutsOpen: open }),
+
   // File Viewer
   selectedFile: null,
   setSelectedFile: (file) => set({ selectedFile: file }),
+
+  // Keyboard Shortcuts
+  keyboardShortcutsOpen: false,
+  setKeyboardShortcutsOpen: (open) => set({ keyboardShortcutsOpen: open }),
 
   // UI
   sidebarOpen: true,

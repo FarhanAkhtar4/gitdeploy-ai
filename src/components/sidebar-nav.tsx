@@ -20,6 +20,7 @@ import { useAppStore, type AppView } from '@/store/app-store';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { NotificationsPanel } from '@/components/notifications-panel';
+import { ThemeToggle } from '@/components/theme-toggle';
 import {
   Tooltip,
   TooltipContent,
@@ -89,6 +90,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             <button
               key={item.view}
               onClick={() => handleNav(item.view)}
+              aria-label={item.label}
               className={`flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm transition-all duration-200 group relative ${
                 isActive
                   ? 'text-[#58a6ff] shadow-sm'
@@ -165,6 +167,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         {/* Quick Actions Row */}
         {sidebarOpen && (
           <div className="flex items-center justify-end gap-1 mb-2">
+            <ThemeToggle />
             <button
               className="p-1.5 rounded-lg transition-colors hover:bg-[#21262d] text-[10px] font-mono"
               style={{ color: '#484f58' }}
@@ -177,7 +180,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         )}
         {!sidebarOpen && (
-          <div className="flex items-center justify-center mb-2">
+          <div className="flex items-center justify-center gap-1 mb-2">
+            <ThemeToggle />
             <NotificationsPanel />
           </div>
         )}
@@ -239,6 +243,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           className="w-full h-8 hover:bg-[#21262d]"
           style={{ color: '#8b949e' }}
           onClick={() => setSidebarOpen(!sidebarOpen)}
+          aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </Button>
@@ -257,7 +262,7 @@ export function SidebarNav() {
       <div className="md:hidden fixed top-0 left-0 z-50 p-3">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
-            <button className="p-2 rounded-lg" style={{ backgroundColor: '#161b22', color: '#c9d1d9' }}>
+            <button className="p-2 rounded-lg" style={{ backgroundColor: '#161b22', color: '#c9d1d9' }} aria-label="Open navigation menu">
               <Menu className="w-5 h-5" />
             </button>
           </SheetTrigger>
