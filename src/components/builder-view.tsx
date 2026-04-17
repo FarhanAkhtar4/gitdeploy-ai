@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useAppStore, type ChatMessage, type RequirementsCard as RequirementsCardType } from '@/store/app-store';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,12 +37,27 @@ import {
   CheckSquare,
   BarChart3,
   MessageCircle,
+  Globe,
+  Server,
+  Smartphone,
+  ChevronLeft,
+  ChevronRight,
+  Code2,
+  Folder,
+  File,
+  Lightbulb,
+  Layers,
+  ArrowRight,
+  Package,
+  GitBranch,
+  Database,
+  Shield,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type BuilderPhase = 'describe' | 'requirements' | 'file_tree' | 'generating' | 'complete' | 'deploying';
-type BuilderTab = 'chat' | 'templates' | 'marketplace';
+type BuilderTab = 'chat' | 'templates' | 'marketplace' | 'preview';
 
 /* ─── Quick Start Guide Steps ─── */
 const QUICK_START_STEPS = [
@@ -66,6 +81,143 @@ const EXAMPLE_PROMPTS = [
   { icon: '✅', title: 'Todo + Auth', desc: 'Full-stack with user authentication', text: 'Build a full-stack todo app with auth' },
   { icon: '📊', title: 'Analytics', desc: 'Dashboard with charts and export', text: 'Create an analytics dashboard with charts' },
 ];
+
+/* ─── Template Marketplace Panel Data ─── */
+const MARKETPLACE_CATEGORIES = [
+  { id: 'webapps', label: 'Web Apps', icon: Globe, color: '#58a6ff' },
+  { id: 'apis', label: 'APIs', icon: Server, color: '#3fb950' },
+  { id: 'mobile', label: 'Mobile', icon: Smartphone, color: '#a371f7' },
+  { id: 'devops', label: 'DevOps', icon: GitBranch, color: '#e3b341' },
+];
+
+const MARKETPLACE_PANEL_TEMPLATES = [
+  { id: 'mp1', name: 'Next.js SaaS', category: 'webapps', description: 'Full SaaS boilerplate with auth, billing, and dashboard', tech: ['Next.js', 'Prisma', 'Stripe'], color: '#58a6ff', prompt: 'Build a Next.js SaaS app with authentication, Stripe billing, Prisma database, and admin dashboard' },
+  { id: 'mp2', name: 'React Dashboard', category: 'webapps', description: 'Analytics dashboard with interactive charts and filters', tech: ['React', 'Recharts', 'Tailwind'], color: '#58a6ff', prompt: 'Build a React analytics dashboard with Recharts, data tables, date filters, and CSV export' },
+  { id: 'mp3', name: 'Express REST API', category: 'apis', description: 'Production API with auth, validation, and docs', tech: ['Express', 'MongoDB', 'JWT'], color: '#3fb950', prompt: 'Create a REST API with Express, MongoDB, JWT auth, input validation, and Swagger docs' },
+  { id: 'mp4', name: 'GraphQL Server', category: 'apis', description: 'GraphQL API with subscriptions and dataloader', tech: ['Apollo', 'PostgreSQL', 'Redis'], color: '#3fb950', prompt: 'Build a GraphQL server with Apollo, PostgreSQL, Redis caching, and real-time subscriptions' },
+  { id: 'mp5', name: 'React Native Chat', category: 'mobile', description: 'Cross-platform chat app with rooms and DMs', tech: ['React Native', 'Socket.io', 'Firebase'], color: '#a371f7', prompt: 'Build a React Native chat app with Socket.io, chat rooms, direct messages, push notifications, and user presence' },
+  { id: 'mp6', name: 'Flutter E-commerce', category: 'mobile', description: 'Mobile store with cart, checkout, and payments', tech: ['Flutter', 'Stripe', 'Supabase'], color: '#a371f7', prompt: 'Build a Flutter e-commerce app with product catalog, shopping cart, Stripe checkout, and order tracking' },
+  { id: 'mp7', name: 'CI/CD Pipeline', category: 'devops', description: 'Complete CI/CD with staging, prod, and rollback', tech: ['GitHub Actions', 'Docker', 'Terraform'], color: '#e3b341', prompt: 'Set up a CI/CD pipeline with GitHub Actions, Docker builds, Terraform infrastructure, staging and production environments' },
+  { id: 'mp8', name: 'Docker Compose Stack', category: 'devops', description: 'Multi-service orchestration with monitoring', tech: ['Docker', 'Nginx', 'Prometheus'], color: '#e3b341', prompt: 'Create a Docker Compose stack with Nginx reverse proxy, Node.js API, PostgreSQL, Redis, and Prometheus monitoring' },
+];
+
+/* ─── AI Suggestions Data ─── */
+const AI_SUGGESTION_MAP: Record<string, Array<{ text: string; icon: typeof Lightbulb }>> = {
+  'e-commerce': [
+    { text: 'Add payment integration with Stripe', icon: ShoppingCart },
+    { text: 'Include admin dashboard', icon: BarChart3 },
+    { text: 'Add product search and filtering', icon: Layers },
+    { text: 'Include order tracking system', icon: Package },
+  ],
+  'chat': [
+    { text: 'Add message encryption', icon: Shield },
+    { text: 'Include file sharing support', icon: Package },
+    { text: 'Add user presence indicators', icon: Eye },
+    { text: 'Include notification system', icon: MessageCircle },
+  ],
+  'api': [
+    { text: 'Add rate limiting middleware', icon: Shield },
+    { text: 'Include API documentation', icon: FileCode },
+    { text: 'Add caching layer with Redis', icon: Database },
+    { text: 'Include webhook support', icon: Zap },
+  ],
+  'dashboard': [
+    { text: 'Add real-time data updates', icon: Zap },
+    { text: 'Include data export to CSV/PDF', icon: FileCode },
+    { text: 'Add role-based access control', icon: Shield },
+    { text: 'Include customizable widgets', icon: Layers },
+  ],
+  'default': [
+    { text: 'Add authentication system', icon: Shield },
+    { text: 'Include error handling', icon: Zap },
+    { text: 'Add database integration', icon: Database },
+    { text: 'Include deployment config', icon: Rocket },
+  ],
+};
+
+/* ─── Build Milestones Data ─── */
+const BUILD_MILESTONES = [
+  {
+    id: 'm1', label: 'Setting up project', substeps: [
+      { id: 's1', label: 'Creating package.json' },
+      { id: 's2', label: 'Installing dependencies' },
+      { id: 's3', label: 'Configuring TypeScript' },
+    ]
+  },
+  {
+    id: 'm2', label: 'Generating components', substeps: [
+      { id: 's4', label: 'Creating layout components' },
+      { id: 's5', label: 'Building page components' },
+      { id: 's6', label: 'Adding shared UI components' },
+    ]
+  },
+  {
+    id: 'm3', label: 'Writing API routes', substeps: [
+      { id: 's7', label: 'Creating API handlers' },
+      { id: 's8', label: 'Adding middleware' },
+      { id: 's9', label: 'Connecting to database' },
+    ]
+  },
+  {
+    id: 'm4', label: 'Finalizing project', substeps: [
+      { id: 's10', label: 'Adding configuration files' },
+      { id: 's11', label: 'Writing README documentation' },
+      { id: 's12', label: 'Validating all files' },
+    ]
+  },
+];
+
+/* ─── Simulated code preview lines ─── */
+const SIMULATED_CODE_PREVIEW: Record<string, string[]> = {
+  'ts': [
+    "import { NextResponse } from 'next/server';",
+    "import { prisma } from '@/lib/prisma';",
+    "",
+    "export async function GET() {",
+    "  try {",
+    "    const data = await prisma.user.findMany();",
+    "    return NextResponse.json(data);",
+    "  } catch (error) {",
+    "    return NextResponse.json(",
+    "      { error: 'Failed to fetch' },",
+    "      { status: 500 }",
+    "    );",
+    "  }",
+    "}",
+  ],
+  'tsx': [
+    "export default function Page() {",
+    "  const [data, setData] = useState([]);",
+    "",
+    "  useEffect(() => {",
+    "    fetch('/api/data')",
+    "      .then(res => res.json())",
+    "      .then(setData);",
+    "  }, []);",
+    "",
+    "  return (",
+    "    <div className='container'>",
+    "      {data.map(item => (",
+    "        <Card key={item.id} />",
+    "      ))}",
+    "    </div>",
+    "  );",
+    "}",
+  ],
+  'default': [
+    "{",
+    '  "name": "my-project",',
+    '  "version": "0.1.0",',
+    '  "private": true,',
+    '  "scripts": {',
+    '    "dev": "next dev",',
+    '    "build": "next build",',
+    '    "start": "next start",',
+    '    "lint": "next lint"',
+    "  }",
+    "}",
+  ],
+};
 
 function ProgressDots({ current, total }: { current: number; total: number }) {
   const maxDots = Math.min(total, 20);
@@ -135,7 +287,6 @@ function CopyButton({ text }: { text: string }) {
 
 /* ─── Code Block Renderer ─── */
 function MessageContent({ content }: { content: string }) {
-  // Split content by code blocks
   const parts = content.split(/(```[\s\S]*?```)/g);
 
   return (
@@ -171,7 +322,6 @@ function MessageContent({ content }: { content: string }) {
           );
         }
 
-        // Regular text — handle inline code
         const textParts = part.split(/(`[^`]+`)/g);
         return (
           <span key={i} className="whitespace-pre-wrap font-mono text-xs leading-relaxed" style={{ color: '#c9d1d9' }}>
@@ -190,6 +340,183 @@ function MessageContent({ content }: { content: string }) {
               return <span key={j}>{tp}</span>;
             })}
           </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─── Syntax Highlighting for Code Preview ─── */
+function SyntaxHighlightedCode({ code, language }: { code: string[]; language: string }) {
+  const highlightLine = (line: string) => {
+    // Keywords
+    const keywords = ['import', 'export', 'default', 'function', 'const', 'let', 'var', 'return', 'try', 'catch', 'async', 'await', 'from', 'if', 'else', 'new', 'typeof', 'interface', 'type'];
+    // Strings
+    const stringRegex = /('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)/g;
+
+    let result: React.ReactNode[] = [];
+    let remaining = line;
+    let keyIdx = 0;
+
+    while (remaining.length > 0) {
+      const stringMatch = remaining.match(stringRegex);
+      if (stringMatch && stringMatch.index !== undefined && stringMatch.index < remaining.length) {
+        // Add text before string
+        if (stringMatch.index > 0) {
+          const before = remaining.slice(0, stringMatch.index);
+          result.push(...highlightKeywords(before, keywords, keyIdx));
+          keyIdx += before.length;
+        }
+        // Add string
+        result.push(<span key={`s${keyIdx}`} style={{ color: '#a5d6ff' }}>{stringMatch[0]}</span>);
+        keyIdx++;
+        remaining = remaining.slice(stringMatch.index + stringMatch[0].length);
+      } else {
+        result.push(...highlightKeywords(remaining, keywords, keyIdx));
+        break;
+      }
+    }
+    return result;
+  };
+
+  const highlightKeywords = (text: string, keywords: string[], startKey: number): React.ReactNode[] => {
+    const parts: React.ReactNode[] = [];
+    let remaining = text;
+    let localKey = startKey;
+
+    while (remaining.length > 0) {
+      let found = false;
+      for (const kw of keywords) {
+        const idx = remaining.indexOf(kw);
+        if (idx === 0 || (idx > 0 && /[\s(={<>]/.test(remaining[idx - 1]))) {
+          if (idx > 0) {
+            parts.push(<span key={`t${localKey++}`} style={{ color: '#c9d1d9' }}>{remaining.slice(0, idx)}</span>);
+          }
+          // Check if it's a full keyword match
+          const afterIdx = idx + kw.length;
+          if (afterIdx >= remaining.length || /[\s(={<>:;,})\]]/.test(remaining[afterIdx])) {
+            parts.push(<span key={`k${localKey++}`} style={{ color: '#ff7b72' }}>{kw}</span>);
+            remaining = remaining.slice(afterIdx);
+            found = true;
+            break;
+          }
+        }
+      }
+      if (!found) {
+        // Check for comments
+        if (remaining.startsWith('//') || remaining.startsWith('#')) {
+          parts.push(<span key={`c${localKey++}`} style={{ color: '#8b949e' }}>{remaining}</span>);
+          remaining = '';
+        } else {
+          parts.push(<span key={`t${localKey++}`} style={{ color: '#c9d1d9' }}>{remaining.slice(0, 1)}</span>);
+          remaining = remaining.slice(1);
+        }
+      }
+    }
+    return parts;
+  };
+
+  return (
+    <pre className="p-3 overflow-x-auto custom-scroll text-xs font-mono leading-relaxed">
+      {code.map((line, i) => (
+        <div key={i} className="flex">
+          <span className="select-none w-8 text-right shrink-0 pr-3" style={{ color: '#484f58' }}>{i + 1}</span>
+          <span>{highlightLine(line)}</span>
+        </div>
+      ))}
+    </pre>
+  );
+}
+
+/* ─── Milestone Progress Component ─── */
+function MilestoneProgress({ progress, isBuilding }: { progress: { current: number; total: number; section: string }; isBuilding: boolean }) {
+  // Compute active milestone/substep from progress directly (derived state, no effect needed)
+  const totalSubsteps = BUILD_MILESTONES.reduce((sum, m) => sum + m.substeps.length, 0);
+  const progressRatio = progress.current / Math.max(progress.total, 1);
+  const completedSubsteps = Math.floor(progressRatio * totalSubsteps);
+
+  let activeMilestoneIdx = BUILD_MILESTONES.length - 1;
+  let activeSubstepIdx = BUILD_MILESTONES[BUILD_MILESTONES.length - 1].substeps.length - 1;
+
+  let count = 0;
+  for (let mi = 0; mi < BUILD_MILESTONES.length; mi++) {
+    const milestone = BUILD_MILESTONES[mi];
+    for (let si = 0; si < milestone.substeps.length; si++) {
+      count++;
+      if (count === completedSubsteps + 1) {
+        activeMilestoneIdx = mi;
+        activeSubstepIdx = si;
+        mi = BUILD_MILESTONES.length; // break outer
+        break;
+      }
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {BUILD_MILESTONES.map((milestone, mi) => {
+        const isComplete = mi < activeMilestoneIdx;
+        const isActive = mi === activeMilestoneIdx && isBuilding;
+        const isPending = mi > activeMilestoneIdx || (!isBuilding && !isComplete);
+
+        return (
+          <motion.div
+            key={milestone.id}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: mi * 0.1, duration: 0.3 }}
+          >
+            <div className="flex items-center gap-2 mb-1.5">
+              <div
+                className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                style={{
+                  backgroundColor: isComplete ? 'rgba(63,185,80,0.2)' : isActive ? 'rgba(88,166,255,0.2)' : 'rgba(48,54,61,0.5)',
+                }}
+              >
+                {isComplete ? (
+                  <CheckCircle className="w-3.5 h-3.5" style={{ color: '#3fb950' }} />
+                ) : isActive ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: '#58a6ff' }} />
+                ) : (
+                  <Circle className="w-3 h-3" style={{ color: '#484f58' }} />
+                )}
+              </div>
+              <span
+                className="text-[11px] font-semibold"
+                style={{ color: isComplete ? '#3fb950' : isActive ? '#58a6ff' : '#8b949e' }}
+              >
+                {milestone.label}
+              </span>
+              {isActive && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full animate-pulse" style={{ backgroundColor: 'rgba(88,166,255,0.1)', color: '#58a6ff' }}>
+                  In Progress
+                </span>
+              )}
+            </div>
+            <div className="ml-2.5 pl-3 border-l space-y-1" style={{ borderColor: isComplete ? '#3fb95040' : isActive ? '#58a6ff40' : '#21262d' }}>
+              {milestone.substeps.map((substep, si) => {
+                const subComplete = isComplete || (isActive && si < activeSubstepIdx);
+                const subActive = isActive && si === activeSubstepIdx;
+                return (
+                  <div key={substep.id} className="flex items-center gap-2 py-0.5">
+                    {subComplete ? (
+                      <Check className="w-3 h-3 shrink-0" style={{ color: '#3fb950' }} />
+                    ) : subActive ? (
+                      <Loader2 className="w-3 h-3 shrink-0 animate-spin" style={{ color: '#58a6ff' }} />
+                    ) : (
+                      <Circle className="w-2.5 h-2.5 shrink-0" style={{ color: '#30363d' }} />
+                    )}
+                    <span
+                      className="text-[10px]"
+                      style={{ color: subComplete ? '#8b949e' : subActive ? '#c9d1d9' : '#484f58' }}
+                    >
+                      {substep.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
         );
       })}
     </div>
@@ -224,6 +551,9 @@ export function BuilderView() {
   const [projectName, setProjectName] = useState('');
   const [activeTab, setActiveTab] = useState<BuilderTab>('chat');
   const [charCount, setCharCount] = useState(0);
+  const [marketplacePanelOpen, setMarketplacePanelOpen] = useState(false);
+  const [marketplaceCategory, setMarketplaceCategory] = useState('webapps');
+  const [previewSelectedFile, setPreviewSelectedFile] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -236,6 +566,43 @@ export function BuilderView() {
 
   // Right panel has content?
   const rightPanelHasContent = requirementsCard && phase !== 'describe' || fileTreePaths.length > 0 || generatedFiles.length > 0;
+
+  // Compute AI suggestions based on input
+  const aiSuggestions = useMemo(() => {
+    if (!input || input.length < 3) return AI_SUGGESTION_MAP['default'];
+    const lower = input.toLowerCase();
+    for (const key of Object.keys(AI_SUGGESTION_MAP)) {
+      if (key !== 'default' && lower.includes(key)) {
+        return AI_SUGGESTION_MAP[key];
+      }
+    }
+    // Check for partial matches
+    if (lower.includes('shop') || lower.includes('store') || lower.includes('product') || lower.includes('cart')) return AI_SUGGESTION_MAP['e-commerce'];
+    if (lower.includes('message') || lower.includes('real-time') || lower.includes('socket')) return AI_SUGGESTION_MAP['chat'];
+    if (lower.includes('rest') || lower.includes('graphql') || lower.includes('endpoint') || lower.includes('server')) return AI_SUGGESTION_MAP['api'];
+    if (lower.includes('chart') || lower.includes('graph') || lower.includes('analytics') || lower.includes('report')) return AI_SUGGESTION_MAP['dashboard'];
+    return AI_SUGGESTION_MAP['default'];
+  }, [input]);
+
+  // Compute preview file list
+  const previewFiles = useMemo(() => {
+    if (generatedFiles.length > 0) return generatedFiles;
+    if (fileTreePaths.length > 0) return fileTreePaths.map(p => ({ path: p, content: '', purpose: '' }));
+    return [];
+  }, [generatedFiles, fileTreePaths]);
+
+  // Get code preview for selected file
+  const codePreviewLines = useMemo(() => {
+    if (!previewSelectedFile) return SIMULATED_CODE_PREVIEW['default'];
+    const ext = previewSelectedFile.split('.').pop()?.toLowerCase() || '';
+    if (ext === 'ts' || ext === 'tsx' || ext === 'js' || ext === 'jsx') {
+      // If we have actual generated file content, use it
+      const genFile = generatedFiles.find(f => f.path === previewSelectedFile);
+      if (genFile && genFile.content) return genFile.content.split('\n');
+      return ext.includes('x') ? SIMULATED_CODE_PREVIEW['tsx'] : SIMULATED_CODE_PREVIEW['ts'];
+    }
+    return SIMULATED_CODE_PREVIEW['default'];
+  }, [previewSelectedFile, generatedFiles]);
 
   const sendMessage = useCallback(async (message: string) => {
     if (!message.trim() || isLoading) return;
@@ -325,6 +692,7 @@ export function BuilderView() {
   const handleTemplateSelect = (prompt: string) => {
     setActiveTab('chat');
     sendMessage(prompt);
+    setMarketplacePanelOpen(false);
   };
 
   const handleConfirmRequirements = (card: RequirementsCardType) => {
@@ -411,6 +779,7 @@ export function BuilderView() {
     setFileTreePaths([]);
     setBuildProgress({ current: 0, total: 0, section: '' });
     setActiveTab('chat');
+    setPreviewSelectedFile(null);
   };
 
   const handleCancelBuild = () => {
@@ -423,6 +792,17 @@ export function BuilderView() {
   const formatTimestamp = (ts: string) => {
     const d = new Date(ts);
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Get file icon based on extension
+  const getFileIcon = (path: string) => {
+    const ext = path.split('.').pop()?.toLowerCase() || '';
+    if (['ts', 'tsx', 'js', 'jsx'].includes(ext)) return <FileCode className="w-3.5 h-3.5" style={{ color: '#58a6ff' }} />;
+    if (['json', 'yaml', 'yml', 'toml'].includes(ext)) return <File className="w-3.5 h-3.5" style={{ color: '#e3b341' }} />;
+    if (['css', 'scss', 'less'].includes(ext)) return <File className="w-3.5 h-3.5" style={{ color: '#f778ba' }} />;
+    if (['md', 'txt'].includes(ext)) return <File className="w-3.5 h-3.5" style={{ color: '#8b949e' }} />;
+    if (['prisma'].includes(ext)) return <Database className="w-3.5 h-3.5" style={{ color: '#3fb950' }} />;
+    return <File className="w-3.5 h-3.5" style={{ color: '#484f58' }} />;
   };
 
   return (
@@ -461,6 +841,11 @@ export function BuilderView() {
                 <TabsTrigger value="marketplace" className="h-5 text-xs px-2 data-[state=active]:bg-[#30363d] data-[state=active]:text-[#58a6ff]">
                   <Sparkles className="w-3 h-3 mr-1" /> Marketplace
                 </TabsTrigger>
+                {previewFiles.length > 0 && (
+                  <TabsTrigger value="preview" className="h-5 text-xs px-2 data-[state=active]:bg-[#30363d] data-[state=active]:text-[#58a6ff]">
+                    <Eye className="w-3 h-3 mr-1" /> Preview
+                  </TabsTrigger>
+                )}
               </TabsList>
             </Tabs>
             <Button
@@ -471,10 +856,21 @@ export function BuilderView() {
             >
               New
             </Button>
+            {/* Marketplace panel toggle */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 text-[10px]"
+              style={{ color: marketplacePanelOpen ? '#58a6ff' : '#8b949e' }}
+              onClick={() => setMarketplacePanelOpen(!marketplacePanelOpen)}
+            >
+              {marketplacePanelOpen ? <ChevronRight className="w-3.5 h-3.5" /> : <Layers className="w-3.5 h-3.5" />}
+              {marketplacePanelOpen ? 'Close' : 'Templates'}
+            </Button>
           </div>
         </div>
 
-        {/* Marketplace, Templates or Chat */}
+        {/* Marketplace, Templates, Preview or Chat */}
         {activeTab === 'marketplace' && phase === 'describe' ? (
           <ScrollArea className="flex-1 p-4">
             <TemplateMarketplace onSelectTemplate={handleTemplateSelect} />
@@ -483,6 +879,73 @@ export function BuilderView() {
           <ScrollArea className="flex-1 p-4">
             <ProjectTemplates onSelectTemplate={handleTemplateSelect} />
           </ScrollArea>
+        ) : activeTab === 'preview' && previewFiles.length > 0 ? (
+          /* ─── Live Preview Tab ─── */
+          <div className="flex-1 flex overflow-hidden">
+            {/* File Tree Sidebar */}
+            <div className="w-56 border-r flex flex-col" style={{ borderColor: '#30363d', backgroundColor: '#0d1117' }}>
+              <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: '#21262d' }}>
+                <FolderTree className="w-3.5 h-3.5" style={{ color: '#58a6ff' }} />
+                <span className="text-[11px] font-medium" style={{ color: '#c9d1d9' }}>Project Files</span>
+                <span className="text-[9px] ml-auto px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(88,166,255,0.1)', color: '#58a6ff' }}>
+                  {previewFiles.length}
+                </span>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="p-2 space-y-0.5">
+                  {previewFiles.map((file, i) => {
+                    const path = typeof file === 'string' ? file : file.path;
+                    const fileName = path.split('/').pop() || path;
+                    const isActive = previewSelectedFile === path;
+                    return (
+                      <motion.button
+                        key={`${path}-${i}`}
+                        initial={{ opacity: 0, x: -5 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.02, duration: 0.15 }}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors"
+                        style={{
+                          backgroundColor: isActive ? 'rgba(88,166,255,0.12)' : 'transparent',
+                          color: isActive ? '#58a6ff' : '#8b949e',
+                        }}
+                        onClick={() => setPreviewSelectedFile(path)}
+                        onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = '#161b22'; }}
+                        onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+                      >
+                        {getFileIcon(path)}
+                        <span className="text-[11px] font-mono truncate">{fileName}</span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+
+            {/* Code Preview Panel */}
+            <div className="flex-1 flex flex-col" style={{ backgroundColor: '#0d1117' }}>
+              {/* Code preview header */}
+              <div className="px-4 py-2 border-b flex items-center gap-2" style={{ borderColor: '#21262d', backgroundColor: '#161b22' }}>
+                <div className="flex gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#f8514950' }} />
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#e3b34150' }} />
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#3fb95050' }} />
+                </div>
+                <span className="text-[11px] font-mono ml-2" style={{ color: '#8b949e' }}>
+                  {previewSelectedFile || 'package.json'}
+                </span>
+                <span className="text-[9px] ml-auto px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#21262d', color: '#484f58' }}>
+                  {codePreviewLines.length} lines
+                </span>
+              </div>
+              {/* Code content */}
+              <ScrollArea className="flex-1">
+                <SyntaxHighlightedCode
+                  code={codePreviewLines}
+                  language={previewSelectedFile?.split('.').pop() || 'json'}
+                />
+              </ScrollArea>
+            </div>
+          </div>
         ) : (
           <>
             {/* Messages */}
@@ -491,7 +954,6 @@ export function BuilderView() {
                 {builderChat.length === 0 && (
                   /* ─── Better Empty State ─── */
                   <div className="text-center py-10">
-                    {/* Large icon with animated gradient ring */}
                     <motion.div
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
@@ -500,7 +962,6 @@ export function BuilderView() {
                       style={{ backgroundColor: '#58a6ff10' }}
                     >
                       <Sparkles className="w-10 h-10 animate-sparkle" style={{ color: '#58a6ff' }} />
-                      {/* Animated gradient ring */}
                       <div
                         className="absolute inset-[-4px] rounded-2xl animate-pulse-ring"
                         style={{
@@ -512,7 +973,6 @@ export function BuilderView() {
                       />
                     </motion.div>
 
-                    {/* Gradient text title */}
                     <h3
                       className="text-xl font-bold mb-2"
                       style={{
@@ -528,7 +988,6 @@ export function BuilderView() {
                       Tell me what you want to build and I&apos;ll create the complete codebase for you
                     </p>
 
-                    {/* Example prompts in 2x2 grid */}
                     <div className="grid grid-cols-2 gap-2 max-w-lg mx-auto mt-6">
                       {EXAMPLE_PROMPTS.map((example, i) => (
                         <motion.button
@@ -549,7 +1008,6 @@ export function BuilderView() {
                       ))}
                     </div>
 
-                    {/* Or try a template link */}
                     <button
                       className="mt-4 text-xs flex items-center gap-1.5 mx-auto transition-colors hover:text-[#58a6ff]"
                       style={{ color: '#8b949e' }}
@@ -601,7 +1059,6 @@ export function BuilderView() {
                         >
                           <MessageContent content={msg.content} />
                         </div>
-                        {/* Timestamp + Copy row */}
                         <div className={`flex items-center gap-2 mt-1 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                           <span className="text-[10px]" style={{ color: '#484f58' }}>
                             {formatTimestamp(msg.timestamp)}
@@ -635,7 +1092,7 @@ export function BuilderView() {
           </>
         )}
 
-        {/* Build Progress — Card Wrapper with estimated time + cancel */}
+        {/* Build Progress — Enhanced with Milestones */}
         {isBuilding && buildProgress.total > 0 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
@@ -646,7 +1103,7 @@ export function BuilderView() {
           >
             <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
               <CardContent className="p-3">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-medium flex items-center gap-2" style={{ color: '#58a6ff' }}>
                     <span className="animate-pulse-glow">📦</span> BUILD PROGRESS
                   </span>
@@ -667,12 +1124,16 @@ export function BuilderView() {
                 <span className="text-[10px] font-mono block mb-2" style={{ color: '#8b949e' }}>
                   {buildProgress.current} of {buildProgress.total} files — {buildProgress.section}
                 </span>
-                <ProgressDots current={buildProgress.current} total={buildProgress.total} />
-                <div className="mt-2">
-                  <Progress
-                    value={(buildProgress.current / buildProgress.total) * 100}
-                    className="h-1.5 progress-shimmer"
-                  />
+                {/* Milestone-based progress */}
+                <MilestoneProgress progress={buildProgress} isBuilding={isBuilding} />
+                <div className="mt-3">
+                  <ProgressDots current={buildProgress.current} total={buildProgress.total} />
+                  <div className="mt-2">
+                    <Progress
+                      value={(buildProgress.current / buildProgress.total) * 100}
+                      className="h-1.5 progress-shimmer"
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -711,14 +1172,12 @@ export function BuilderView() {
                     <p className="text-sm font-semibold flex items-center gap-2" style={{ color: '#3fb950' }}>
                       ✅ BUILD COMPLETE
                     </p>
-                    {/* File count with animated counter */}
                     <div className="flex items-center gap-2">
                       <span className="text-2xl font-bold" style={{ color: '#c9d1d9' }}>
                         <AnimatedCounter target={generatedFiles.length} />
                       </span>
                       <span className="text-xs" style={{ color: '#8b949e' }}>files built</span>
                     </div>
-                    {/* Project summary with tech stack badges */}
                     <div className="flex items-center gap-1.5">
                       <span className="text-[10px]" style={{ color: '#8b949e' }}>for</span>
                       <span className="text-xs font-medium" style={{ color: '#58a6ff' }}>{projectName}</span>
@@ -770,55 +1229,243 @@ export function BuilderView() {
           </div>
         )}
 
-        {/* Input — Enhanced with char count + better CTA */}
+        {/* Input + AI Suggestions Bar */}
         <div className="px-4 py-3 border-t" style={{ borderColor: '#30363d' }}>
-          <div className="flex gap-2 max-w-3xl mx-auto">
-            <div className="flex-1 relative">
-              <Textarea
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  setCharCount(e.target.value.length);
+          <div className="max-w-3xl mx-auto">
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <Textarea
+                  value={input}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    setCharCount(e.target.value.length);
+                  }}
+                  placeholder="Describe what you want to build..."
+                  className="min-h-[44px] max-h-32 bg-[#0d1117] border-[#30363d] text-[#c9d1d9] text-sm resize-none rounded-xl focus:border-[#58a6ff] pr-14"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage(input);
+                    }
+                  }}
+                  rows={1}
+                  maxLength={2000}
+                />
+                {charCount > 0 && (
+                  <span
+                    className="absolute right-3 bottom-2 text-[10px] font-mono"
+                    style={{ color: charCount > 1800 ? '#f85149' : '#484f58' }}
+                  >
+                    {charCount}/2000
+                  </span>
+                )}
+              </div>
+              <Button
+                size="icon"
+                disabled={!input.trim() || isLoading}
+                className="rounded-xl shrink-0 transition-all duration-300 h-[44px] w-[44px]"
+                style={{
+                  background: input.trim()
+                    ? 'linear-gradient(135deg, #58a6ff, #238636)'
+                    : '#21262d',
+                  color: input.trim() ? 'white' : '#484f58',
+                  boxShadow: input.trim() ? '0 0 20px rgba(88,166,255,0.3), 0 0 40px rgba(35,134,54,0.15)' : 'none',
                 }}
-                placeholder="Describe what you want to build..."
-                className="min-h-[44px] max-h-32 bg-[#0d1117] border-[#30363d] text-[#c9d1d9] text-sm resize-none rounded-xl focus:border-[#58a6ff] pr-14"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage(input);
-                  }
-                }}
-                rows={1}
-                maxLength={2000}
-              />
-              {/* Character count */}
-              {charCount > 0 && (
-                <span
-                  className="absolute right-3 bottom-2 text-[10px] font-mono"
-                  style={{ color: charCount > 1800 ? '#f85149' : '#484f58' }}
-                >
-                  {charCount}/2000
-                </span>
-              )}
+                onClick={() => sendMessage(input)}
+              >
+                <Send className="w-4 h-4" />
+              </Button>
             </div>
-            <Button
-              size="icon"
-              disabled={!input.trim() || isLoading}
-              className="rounded-xl shrink-0 transition-all duration-300 h-[44px] w-[44px]"
-              style={{
-                background: input.trim()
-                  ? 'linear-gradient(135deg, #58a6ff, #238636)'
-                  : '#21262d',
-                color: input.trim() ? 'white' : '#484f58',
-                boxShadow: input.trim() ? '0 0 20px rgba(88,166,255,0.3), 0 0 40px rgba(35,134,54,0.15)' : 'none',
-              }}
-              onClick={() => sendMessage(input)}
-            >
-              <Send className="w-4 h-4" />
-            </Button>
+
+            {/* ─── AI Suggestions Bar ─── */}
+            <div className="mt-2 flex items-center gap-1.5 overflow-x-auto custom-scroll pb-0.5">
+              <Lightbulb className="w-3 h-3 shrink-0" style={{ color: '#e3b341' }} />
+              <span className="text-[9px] uppercase font-semibold tracking-wider shrink-0" style={{ color: '#484f58' }}>
+                AI Suggests:
+              </span>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={aiSuggestions.map(s => s.text).join(',')}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex items-center gap-1.5"
+                >
+                  {aiSuggestions.map((suggestion) => {
+                    const Icon = suggestion.icon;
+                    return (
+                      <motion.button
+                        key={suggestion.text}
+                        whileHover={{ scale: 1.03, y: -1 }}
+                        whileTap={{ scale: 0.97 }}
+                        className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full border shrink-0 transition-colors"
+                        style={{
+                          borderColor: '#21262d',
+                          backgroundColor: '#0d1117',
+                          color: '#8b949e',
+                        }}
+                        onClick={() => setInput(prev => prev + (prev ? '. ' : '') + suggestion.text)}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLElement).style.borderColor = '#58a6ff30';
+                          (e.currentTarget as HTMLElement).style.color = '#58a6ff';
+                          (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(88,166,255,0.05)';
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLElement).style.borderColor = '#21262d';
+                          (e.currentTarget as HTMLElement).style.color = '#8b949e';
+                          (e.currentTarget as HTMLElement).style.backgroundColor = '#0d1117';
+                        }}
+                      >
+                        <Icon className="w-3 h-3" />
+                        {suggestion.text}
+                      </motion.button>
+                    );
+                  })}
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Collapsible Template Marketplace Panel */}
+      <AnimatePresence>
+        {marketplacePanelOpen && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 280, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            className="border-l overflow-hidden"
+            style={{ borderColor: '#30363d', backgroundColor: '#161b22' }}
+          >
+            <div className="w-[280px] h-full flex flex-col">
+              {/* Panel header */}
+              <div className="px-3 py-3 border-b flex items-center justify-between" style={{ borderColor: '#21262d' }}>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" style={{ color: '#58a6ff' }} />
+                  <span className="text-xs font-semibold" style={{ color: '#c9d1d9' }}>Templates</span>
+                </div>
+                <button
+                  onClick={() => setMarketplacePanelOpen(false)}
+                  className="p-1 rounded-md hover:bg-[#21262d] transition-colors"
+                  style={{ color: '#8b949e' }}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Category tabs */}
+              <div className="flex items-center gap-1 px-3 py-2 overflow-x-auto custom-scroll" style={{ borderBottom: '1px solid #21262d' }}>
+                {MARKETPLACE_CATEGORIES.map((cat) => {
+                  const Icon = cat.icon;
+                  const isActive = marketplaceCategory === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full shrink-0 transition-all duration-200"
+                      style={{
+                        backgroundColor: isActive ? `${cat.color}15` : 'transparent',
+                        color: isActive ? cat.color : '#8b949e',
+                        border: `1px solid ${isActive ? `${cat.color}30` : 'transparent'}`,
+                      }}
+                      onClick={() => setMarketplaceCategory(cat.id)}
+                    >
+                      <Icon className="w-3 h-3" />
+                      {cat.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Template cards */}
+              <ScrollArea className="flex-1">
+                <div className="p-3 space-y-2.5">
+                  {MARKETPLACE_PANEL_TEMPLATES.filter(t => t.category === marketplaceCategory).map((template, i) => (
+                    <motion.div
+                      key={template.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.06, duration: 0.25 }}
+                      className="rounded-xl border overflow-hidden transition-all duration-200 hover:border-opacity-60"
+                      style={{
+                        backgroundColor: '#0d1117',
+                        borderColor: '#21262d',
+                        borderLeft: `3px solid ${template.color}`,
+                      }}
+                    >
+                      {/* Preview image placeholder */}
+                      <div
+                        className="h-20 relative overflow-hidden"
+                        style={{
+                          background: `linear-gradient(135deg, ${template.color}12, ${template.color}05, #0d1117)`,
+                          borderBottom: '1px solid #21262d',
+                        }}
+                      >
+                        {/* Simulated code lines */}
+                        <div className="p-2.5 space-y-1">
+                          <div className="flex gap-1.5 mb-1.5">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#f8514950' }} />
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#e3b34150' }} />
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#3fb95050' }} />
+                          </div>
+                          <div className="h-1 rounded" style={{ backgroundColor: `${template.color}20`, width: '55%' }} />
+                          <div className="h-1 rounded" style={{ backgroundColor: `${template.color}12`, width: '80%' }} />
+                          <div className="h-1 rounded" style={{ backgroundColor: `${template.color}15`, width: '40%' }} />
+                        </div>
+                        {/* Category badge */}
+                        <span
+                          className="absolute top-2 right-2 text-[7px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full"
+                          style={{ backgroundColor: `${template.color}20`, color: template.color, border: `1px solid ${template.color}30` }}
+                        >
+                          {MARKETPLACE_CATEGORIES.find(c => c.id === template.category)?.label}
+                        </span>
+                      </div>
+
+                      {/* Content */}
+                      <div className="p-3 space-y-2">
+                        <div>
+                          <h4 className="text-[11px] font-semibold" style={{ color: '#c9d1d9' }}>{template.name}</h4>
+                          <p className="text-[10px] leading-relaxed mt-0.5" style={{ color: '#8b949e' }}>{template.description}</p>
+                        </div>
+                        {/* Tech stack badges */}
+                        <div className="flex flex-wrap gap-1">
+                          {template.tech.map((t) => (
+                            <span
+                              key={t}
+                              className="text-[8px] px-1.5 py-0.5 rounded-full font-mono"
+                              style={{
+                                backgroundColor: 'rgba(88,166,255,0.08)',
+                                color: '#58a6ff',
+                                border: '1px solid rgba(88,166,255,0.15)',
+                              }}
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                        {/* Use Template button */}
+                        <Button
+                          className="w-full gap-1.5 text-[10px] h-7"
+                          style={{
+                            background: `linear-gradient(135deg, ${template.color}, ${template.color}cc)`,
+                            color: 'white',
+                            boxShadow: `0 0 10px ${template.color}20`,
+                          }}
+                          onClick={() => handleTemplateSelect(template.prompt)}
+                        >
+                          <Sparkles className="w-3 h-3" /> Use Template
+                        </Button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Side Panel */}
       <div className="w-80 border-l hidden md:block overflow-y-auto custom-scroll" style={{ borderColor: '#30363d', backgroundColor: '#161b22' }}>
@@ -868,7 +1515,11 @@ export function BuilderView() {
                       transition={{ delay: i * 0.03, duration: 0.2 }}
                       className="flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-lg transition-colors hover:bg-[#21262d] cursor-pointer group"
                       style={{ backgroundColor: '#0d1117' }}
-                      onClick={() => setSelectedFile({ path: file.path, content: file.content, purpose: file.purpose, sizeBytes: file.content.length })}
+                      onClick={() => {
+                        setSelectedFile({ path: file.path, content: file.content, purpose: file.purpose, sizeBytes: file.content.length });
+                        setActiveTab('preview');
+                        setPreviewSelectedFile(file.path);
+                      }}
                     >
                       <CheckCircle className="w-3 h-3 shrink-0" style={{ color: '#3fb950' }} />
                       <span className="font-mono truncate flex-1" style={{ color: '#8b949e' }}>
@@ -891,7 +1542,6 @@ export function BuilderView() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.2 }}
             >
-              {/* Steps */}
               <div className="mb-5">
                 <h3 className="text-xs font-semibold mb-3 flex items-center gap-1.5" style={{ color: '#c9d1d9' }}>
                   <Zap className="w-3.5 h-3.5" style={{ color: '#e3b341' }} /> Quick Start Guide
@@ -909,7 +1559,6 @@ export function BuilderView() {
                         transition={{ delay: 0.1 * step.step, duration: 0.3 }}
                         className="flex items-start gap-3"
                       >
-                        {/* Numbered circle */}
                         <div
                           className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold transition-all duration-300"
                           style={{

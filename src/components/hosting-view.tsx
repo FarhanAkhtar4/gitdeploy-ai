@@ -32,6 +32,13 @@ import {
   Info,
   ThumbsUp,
   RefreshCw,
+  DollarSign,
+  MapPin,
+  Quote,
+  ChevronLeft,
+  Settings,
+  X,
+  Plus,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAppStore } from '@/store/app-store';
@@ -142,6 +149,12 @@ export function HostingView() {
   const [visibleFeatures, setVisibleFeatures] = useState<Set<string>>(new Set(COMPARISON_FEATURES.map(f => f.key)));
   const [showFeatureCustomize, setShowFeatureCustomize] = useState(false);
   const [showHostingScore, setShowHostingScore] = useState(true);
+  const [costTraffic, setCostTraffic] = useState(50000);
+  const [costStorage, setCostStorage] = useState(10);
+  const [costFeatures, setCostFeatures] = useState<Set<string>>(new Set(['ssl', 'cdn']));
+  const [testimonialIndex, setTestimonialIndex] = useState(0);
+  const [deployModalPlatform, setDeployModalPlatform] = useState<Platform | null>(null);
+  const [deployConfig, setDeployConfig] = useState({ projectName: '', branch: 'main', envVars: '', buildCmd: 'npm run build' });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -213,6 +226,35 @@ export function HostingView() {
     }
     return recs.sort((a, b) => b.score - a.score).slice(0, 3);
   }, [data, selectedProject]);
+
+  // Testimonials auto-rotate
+  const TESTIMONIALS = useMemo(() => [
+    { name: 'Emily Zhang', role: 'CTO at TechFlow', avatar: 'EZ', quote: 'Vercel made our Next.js deployment seamless. Zero-config and blazing fast.', rating: 5, platform: 'Vercel', platformColor: '#58a6ff' },
+    { name: 'Marcus Johnson', role: 'Lead Dev at StartupHQ', avatar: 'MJ', quote: 'Railway\'s developer experience is unmatched. We shipped 10x faster.', rating: 5, platform: 'Railway', platformColor: '#e3b341' },
+    { name: 'Priya Sharma', role: 'Founder at DataNest', avatar: 'PS', quote: 'Supabase gave us PostgreSQL with real-time subscriptions for free. Incredible.', rating: 5, platform: 'Supabase', platformColor: '#3fb950' },
+    { name: 'David Kim', role: 'Senior Engineer at CloudBase', avatar: 'DK', quote: 'Netlify\'s continuous deployment saved us hours every sprint cycle.', rating: 4, platform: 'Netlify', platformColor: '#58a6ff' },
+    { name: 'Sofia Rodriguez', role: 'DevOps at ScaleUp', avatar: 'SR', quote: 'Fly.io\'s global edge deployment brought our latency down to 20ms worldwide.', rating: 4, platform: 'Fly.io', platformColor: '#a371f7' },
+    { name: 'James Chen', role: 'Architect at FinServe', avatar: 'JC', quote: 'Render\'s auto-scaling handled our Black Friday traffic spike without a hiccup.', rating: 4, platform: 'Render', platformColor: '#58a6ff' },
+  ], []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTestimonialIndex(prev => (prev + 1) % TESTIMONIALS.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [TESTIMONIALS.length]);
+
+  // Cost calculator computation
+  const costEstimates = useMemo(() => {
+    const baseCost = (costTraffic / 1000) * 0.5 + costStorage * 0.1;
+    const featureMultiplier = costFeatures.size * 0.15;
+    return [
+      { name: 'Vercel', cost: Math.max(0, baseCost * (0.8 + featureMultiplier)), color: '#58a6ff', recommended: true },
+      { name: 'Netlify', cost: Math.max(0, baseCost * (0.85 + featureMultiplier)), color: '#3fb950', recommended: false },
+      { name: 'Railway', cost: Math.max(0, baseCost * (1.1 + featureMultiplier * 0.8)), color: '#e3b341', recommended: false },
+      { name: 'Render', cost: Math.max(0, baseCost * (0.95 + featureMultiplier * 0.9)), color: '#a371f7', recommended: false },
+    ];
+  }, [costTraffic, costStorage, costFeatures]);
 
   if (loading) {
     return (

@@ -1,6 +1,92 @@
 # GitDeploy AI - Worklog
 
 ---
+Task ID: 3-a
+Agent: subagent (Chat View + Settings View Enhancement)
+Task: Enhance Chat View and Settings View with significant new features and styling improvements
+
+Work Log:
+- Read worklog.md — reviewed 8 previous phases of development
+- Read existing chat-view.tsx (2257 lines) and settings-view.tsx (1655 lines) to understand current state
+- Identified that chat-view.tsx already had basic versions of all 4 requested features (conversation history, code preview, file attachment, voice input)
+- Identified that settings-view.tsx had data for Connected Accounts and Activity Log but was NOT rendering them
+- Enhanced chat-view.tsx with 4 major improvements
+- Added 2 new sections to settings-view.tsx (Connected Accounts, Activity Log)
+- Ran lint — passes with zero errors
+- Dev server compiles successfully on port 3000
+
+## Chat View Enhancements (chat-view.tsx)
+
+### 1. Conversation History Sidebar Enhancements
+- Added `activeConversationId` state to track and highlight the active conversation
+- Active conversation now has blue left border indicator (`2px solid #58a6ff`) and highlighted background
+- Added conversation count badge in the "Conversations" header (`{conversations.length}`)
+- Enhanced timestamp display with Clock icon prefix
+- Enhanced message count display with MessageCircle icon prefix
+- Active conversation title uses brighter color (#c9d1d9 vs #8b949e)
+- Creating new conversation now sets it as active
+
+### 2. Code Execution Preview Enhancements
+- Added `previewTab` state ('console' | 'preview') for working tab switching
+- Console tab: Green text (#3fb950) as default output color, line numbers in output, Warning detection (#e3b341)
+- Preview tab: Full simulated browser with address bar, SSL lock icon, refresh button, HTTPS URL
+- Preview tab shows "App Running" with Rocket icon and live status indicator when code succeeds
+- Preview tab shows loading spinner during execution
+- Copy output button in console tab header
+- Close button resets tab to 'console'
+
+### 3. File Attachment Enhancements
+- Added `isDragOver` state for drag-and-drop visual feedback
+- Added `onDragOver` handler on input area to trigger drag state
+- Added full drag-and-drop overlay with AnimatePresence animation (dashed blue border, Paperclip icon)
+- Drop handler processes files and shows toast notification
+- File type detection with colored icons:
+  - Image files: MonitorPlay icon (#a371f7 purple)
+  - Text/Markdown: FileText icon (#3fb950 green)
+  - JSON/YAML: Code icon (#e3b341 yellow)
+  - JS/TS code: Code icon (#58a6ff blue)
+  - Default: FileText icon (#58a6ff blue)
+- File chips have hover border highlight effect
+
+### 4. New Imports Added
+- `Lock` and `RefreshCw` added to lucide-react imports for preview browser bar
+
+## Settings View Enhancements (settings-view.tsx)
+
+### 5. Connected Accounts Section (NEW - was data-only, now rendered)
+- 6 connected services: GitHub, GitLab, Bitbucket, Vercel, Netlify, AWS
+- Each account shows:
+  - Service icon with color-tinted background
+  - Service name
+  - Connection status indicator (green dot for connected, gray for not)
+  - "Last synced" time with RefreshCw icon (only shown when connected)
+- Connect button with gradient styling matching service color and glow shadow
+- Disconnect button with red styling
+- Connected count badge in header ("2/6 connected")
+- Interactive: clicking Connect/Disconnect actually toggles state with toast notification
+- Staggered entry animation, hover translate effect, border color change on hover
+
+### 6. Activity Log Section (NEW - was data-only, now rendered)
+- 8 audit log entries with types: login, api_key, settings, connection, security, billing
+- Each entry shows:
+  - Type-specific icon with color-tinted background (Login=#58a6ff, API Key=#e3b341, Settings=#a371f7, Connection=#3fb950, Security=#f85149, Billing=#e3b341)
+  - Action description text
+  - Type badge with colored pill
+  - Timestamp with Clock icon
+  - IP address with Globe icon
+  - Timeline connector line between entries
+- "Last 30 days" badge in header
+- "View Full Audit Log" link at bottom with ArrowRight icon
+- Staggered entry animation, hover highlight
+
+Stage Summary:
+- Chat View: 4 enhancements (active conversation, working tab preview, drag-drop, file type icons)
+- Settings View: 2 new rendered sections (Connected Accounts, Activity Log)
+- All existing functionality preserved
+- Lint passes with zero errors
+- Dev server compiles successfully on port 3000
+
+---
 Task ID: 8-a
 Agent: subagent (Dashboard Analytics Charts)
 Task: Create comprehensive analytics section for the Dashboard view using Recharts, enhance ProjectAnalytics component
@@ -949,3 +1035,142 @@ Stage Summary:
 6. Add drag-and-drop file upload in builder view
 7. Add real GitHub OAuth flow for authentication
 8. Performance optimization — lazy load heavy components (Recharts, Syntax Highlighter)
+
+---
+Task ID: 2-a
+Agent: subagent (Builder View + Deploy View Enhancements)
+Task: Enhance Builder View with Template Marketplace Panel, Live Preview Tab, AI Suggestions Bar, Progress Milestones. Enhance Deploy View with Multi-Environment Selector, Rollback Manager, Deployment Diff Viewer, Webhook Configuration.
+
+Work Log:
+- Read worklog.md — reviewed 8+ previous phases of development
+- Read existing builder-view.tsx (1042 lines) and deploy-view.tsx (1177 lines) to understand current state
+- Read template-marketplace.tsx, checked UI component availability (checkbox.tsx exists)
+- Completely rewrote builder-view.tsx with 4 major enhancement areas
+- Completely rewrote deploy-view.tsx with 4 major enhancement areas
+- Fixed lint errors: setState inside useEffect (MilestoneProgress), missing Loader2 import (deploy-view.tsx), React Compiler memoization issue
+- Final lint: zero errors in modified files (pre-existing hosting-view.tsx parsing error remains)
+- Dev server compiles successfully on port 3000
+
+## Builder View Enhancements (builder-view.tsx)
+
+### 1. Template Marketplace Panel (Right-side collapsible)
+- Added collapsible 280px panel that slides in/out from the right with AnimatePresence animation
+- 4 category tabs: Web Apps (Globe, #58a6ff), APIs (Server, #3fb950), Mobile (Smartphone, #a371f7), DevOps (GitBranch, #e3b341)
+- 8 template cards (2 per category) with:
+  - Preview image placeholder (simulated terminal dots + code lines)
+  - Category badge overlay
+  - Template name, description, tech stack badges
+  - "Use Template" button with gradient color matching category
+  - Animated entrance with staggered delays
+- Toggle button in header bar (Layers icon)
+- Template selection auto-fills the chat input and closes the panel
+
+### 2. Live Preview Tab
+- Added new "Preview" tab in the header tabs (visible when files exist)
+- Split layout: 56px file tree sidebar + code preview panel
+- File tree sidebar:
+  - File count badge
+  - Color-coded file icons by extension (ts/tsx → blue, json/yaml → yellow, css → pink, md → gray, prisma → green)
+  - Active file highlight with blue background
+  - Hover state on non-active files
+- Code preview panel:
+  - Terminal-style header with colored dots and line count badge
+  - SyntaxHighlightedCode component with keyword highlighting (#ff7b72), string highlighting (#a5d6ff), comment highlighting (#8b949e)
+  - Line numbers (right-aligned, dimmed)
+  - 3 preview templates: TypeScript (ts), TSX React component, JSON config
+  - Uses actual generated file content when available
+
+### 3. AI Suggestions Bar
+- Added horizontal scrollable suggestions bar below the chat input
+- Lightbulb icon + "AI Suggests:" label
+- Context-aware suggestions based on input text:
+  - "e-commerce" keywords → payment, admin, search, order tracking suggestions
+  - "chat" keywords → encryption, file sharing, presence, notifications
+  - "api" keywords → rate limiting, docs, caching, webhooks
+  - "dashboard" keywords → real-time updates, export, RBAC, widgets
+  - Default: auth, error handling, database, deployment
+- Partial matching for related terms (shop/store/product → e-commerce, message/real-time/socket → chat, etc.)
+- Click suggestion appends it to current input text
+- AnimatePresence for smooth transitions when suggestions change
+- Hover effect with blue border and background
+
+### 4. Progress Milestones
+- Replaced simple progress dots with detailed 4-milestone progress:
+  - Milestone 1: "Setting up project" (Creating package.json, Installing dependencies, Configuring TypeScript)
+  - Milestone 2: "Generating components" (Layout components, Page components, Shared UI components)
+  - Milestone 3: "Writing API routes" (API handlers, Middleware, Database connection)
+  - Milestone 4: "Finalizing project" (Config files, README docs, Validation)
+- Each milestone shows:
+  - Complete state: green CheckCircle
+  - Active state: blue spinning Loader2 + "In Progress" badge
+  - Pending state: gray Circle
+- Sub-steps show individual spinners for active substep, checkmarks for completed
+- Indented tree layout with colored border-left (green/blue/gray)
+- Computed from build progress ratio (no setState in effect - uses derived state)
+
+## Deploy View Enhancements (deploy-view.tsx)
+
+### 1. Multi-Environment Selector
+- 3 environment tabs: Development (#58a6ff), Staging (#e3b341), Production (#3fb950)
+- Each tab shows environment-specific icon (Code2, TestTube, Globe)
+- Description text per environment (debug mode, production-like config, optimized build)
+- Env var count badge per environment
+- Grid of env vars preview showing key names and values (masked for secrets)
+- 4 dev vars, 4 staging vars (2 secret), 5 production vars (3 secret)
+- Active state with colored background and glow shadow
+
+### 2. Rollback Manager
+- Card in sidebar with RotateCcw icon and "Rollback Manager" title
+- 5 deployment snapshots with:
+  - Commit SHA (monospace code badge in blue)
+  - Status indicator (success = green, rolled_back = red left border)
+  - Deployment message
+  - Timestamp + duration
+  - Environment badge (colored per environment)
+  - "Rollback" button with two-step confirmation:
+    - Click "Rollback" → shows "Confirm" (red) + "Cancel" buttons
+    - Confirm triggers toast notification
+- Max height 288px with scroll overflow
+- Staggered entry animation
+
+### 3. Deployment Diff Viewer
+- Card showing deployment changes before deploying
+- Summary stats: +N added, ~N modified, -N deleted with colored icons (FilePlus/FileEdit/FileMinus)
+- Addition/deletion ratio bar (green for additions, red for deletions)
+- Total line counts: +N / -N in mono font
+- Expandable "Show Details" toggle:
+  - 6 diff file entries with:
+    - Color-coded left border (green=added, yellow=modified, red=deleted)
+    - File path in monospace
+    - Addition/deletion line counts
+    - Code preview with line numbers and color coding:
+      - Green background for addition lines (+ prefix)
+      - Red background for deletion lines (- prefix)
+      - Gray for context lines
+    - Max height 96px per file with scroll
+
+### 4. Webhook Configuration
+- Card in sidebar with Bell icon and "Webhooks" title
+- 3 pre-configured webhooks: Slack (yellow), Discord (blue), Email (green)
+- Status indicators:
+  - CheckCircle/XCircle for enabled/disabled
+  - "Verified" badge for tested webhooks
+  - "Failed" badge for failed tests
+  - Loader2 spinner during testing
+- "Configure" toggle button to expand configuration:
+  - Per-webhook settings:
+    - Type icon + name
+    - Enable/disable toggle (custom switch with sliding dot)
+    - URL input field (placeholder varies by type)
+    - "Test" button (sends test payload, shows pending state for 1.5s)
+    - 4 event type checkboxes: deploy_start, deploy_success, deploy_fail, rollback
+  - "Add Webhook" button to create new webhook entries
+- Webhook test simulation with random success/failure
+
+Stage Summary:
+- Builder View: 4 major features added (Template Marketplace Panel, Live Preview Tab, AI Suggestions Bar, Progress Milestones)
+- Deploy View: 4 major features added (Multi-Environment Selector, Rollback Manager, Deployment Diff Viewer, Webhook Configuration)
+- All existing functionality preserved in both views
+- Lint: zero errors in modified files (pre-existing hosting-view.tsx parsing error)
+- Dev server compiles successfully on port 3000
+- New imports added: Globe, Server, Smartphone, ChevronLeft/Right, Code2, Folder, File, Lightbulb, Layers, ArrowRight, Package, GitBranch, Database, Shield, Plus, Trash2, FilePlus, FileMinus, FileEdit, MessageSquare, Mail, Webhook, X, Loader2, Checkbox

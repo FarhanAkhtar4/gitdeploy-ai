@@ -68,6 +68,11 @@ import {
   ChevronDown,
   Wifi,
   CalendarDays,
+  Users,
+  Star,
+  GitPullRequest,
+  Terminal,
+  MapPin,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -996,6 +1001,288 @@ export function DashboardView() {
         transition={{ delay: 0.15, duration: 0.4 }}
       >
         <ProjectAnalytics />
+      </motion.div>
+
+      {/* ================================================
+          TEAM ACTIVITY FEED
+          ================================================ */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.4 }}
+      >
+        <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4" style={{ color: '#58a6ff' }} />
+                <CardTitle className="text-sm" style={{ color: '#c9d1d9' }}>Team Activity</CardTitle>
+                <Badge variant="outline" className="text-[9px] px-1.5" style={{ borderColor: '#58a6ff30', color: '#58a6ff' }}>Live</Badge>
+              </div>
+              <button className="text-[10px] flex items-center gap-1 hover:underline" style={{ color: '#58a6ff' }}>
+                View All <ArrowRight className="w-2.5 h-2.5" />
+              </button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 max-h-80 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#30363d transparent' }}>
+              {[
+                { name: 'Sarah Chen', action: 'deployed to production', project: 'api-gateway', time: '2m ago', color: '#3fb950', initials: 'SC' },
+                { name: 'Alex Rivera', action: 'created a new branch', project: 'feature/auth', time: '8m ago', color: '#58a6ff', initials: 'AR' },
+                { name: 'Jordan Lee', action: 'merged PR #42', project: 'dashboard-redesign', time: '15m ago', color: '#a371f7', initials: 'JL' },
+                { name: 'Morgan Kim', action: 'deployed to staging', project: 'payment-service', time: '32m ago', color: '#e3b341', initials: 'MK' },
+                { name: 'Casey Park', action: 'fixed build error in', project: 'user-service', time: '1h ago', color: '#f85149', initials: 'CP' },
+                { name: 'Riley Zhang', action: 'pushed 3 commits to', project: 'docs-site', time: '2h ago', color: '#58a6ff', initials: 'RZ' },
+                { name: 'Taylor Brooks', action: 'released v2.1.0 of', project: 'sdk-core', time: '3h ago', color: '#3fb950', initials: 'TB' },
+              ].map((member, i) => (
+                <motion.div
+                  key={i}
+                  className="flex items-center gap-3 p-2 rounded-lg transition-colors hover:bg-[#0d1117]"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.06, duration: 0.3 }}
+                  style={{ borderLeft: `2px solid ${member.color}40` }}
+                >
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                    style={{ backgroundColor: `${member.color}20`, color: member.color }}
+                  >
+                    {member.initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs" style={{ color: '#c9d1d9' }}>
+                      <span className="font-semibold">{member.name}</span>{' '}
+                      <span style={{ color: '#8b949e' }}>{member.action}</span>{' '}
+                      <code className="text-[10px] px-1 py-0.5 rounded" style={{ backgroundColor: '#21262d', color: member.color }}>{member.project}</code>
+                    </p>
+                  </div>
+                  <span className="text-[10px] shrink-0" style={{ color: '#484f58' }}>{member.time}</span>
+                </motion.div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ================================================
+          DEPLOYMENT PIPELINE VISUALIZATION
+          ================================================ */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25, duration: 0.4 }}
+      >
+        <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <GitBranch className="w-4 h-4" style={{ color: '#3fb950' }} />
+              <CardTitle className="text-sm" style={{ color: '#c9d1d9' }}>Deployment Pipeline</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                { stage: 'Building', color: '#e3b341', icon: Hammer, items: [
+                  { name: 'analytics-v3', time: '2m 15s' },
+                  { name: 'auth-service', time: '1m 45s' },
+                ]},
+                { stage: 'Testing', color: '#58a6ff', icon: Activity, items: [
+                  { name: 'payment-api', time: '4m 02s' },
+                ]},
+                { stage: 'Deploying', color: '#a371f7', icon: Rocket, items: [
+                  { name: 'user-dashboard', time: '30s' },
+                ]},
+                { stage: 'Live', color: '#3fb950', icon: CheckCircle, items: [
+                  { name: 'api-gateway', time: '2h ago' },
+                  { name: 'docs-site', time: '5h ago' },
+                  { name: 'sdk-core', time: '8h ago' },
+                ]},
+              ].map((col, ci) => (
+                <div key={col.stage} className="space-y-2">
+                  <div className="flex items-center gap-1.5 pb-2 border-b" style={{ borderColor: '#21262d' }}>
+                    <div className="p-1 rounded" style={{ backgroundColor: `${col.color}15` }}>
+                      <col.icon className="w-3 h-3" style={{ color: col.color }} />
+                    </div>
+                    <span className="text-[10px] font-semibold" style={{ color: col.color }}>{col.stage}</span>
+                    <span className="text-[9px] ml-auto px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${col.color}15`, color: col.color }}>{col.items.length}</span>
+                  </div>
+                  <div className="space-y-1.5 min-h-[60px]">
+                    {col.items.map((item, ii) => (
+                      <motion.div
+                        key={item.name}
+                        className="p-2 rounded-lg border"
+                        style={{ backgroundColor: '#0d1117', borderColor: `${col.color}20` }}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: ci * 0.15 + ii * 0.08, duration: 0.3 }}
+                        layout
+                      >
+                        <p className="text-[10px] font-medium truncate" style={{ color: '#c9d1d9' }}>{item.name}</p>
+                        <p className="text-[9px]" style={{ color: '#484f58' }}>{item.time}</p>
+                      </motion.div>
+                    ))}
+                  </div>
+                  {/* Connector arrow */}
+                  {ci < 3 && (
+                    <div className="hidden lg:flex items-center justify-center -mt-8 -mr-5 relative z-10">
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* Connecting arrows between columns (visible on larger screens) */}
+            <div className="hidden lg:flex items-center justify-between mt-[-48px] mb-3 px-12 pointer-events-none">
+              {[0,1,2].map(i => (
+                <motion.div key={i} animate={{ x: [0, 4, 0] }} transition={{ duration: 2, repeat: Infinity, delay: i * 0.5 }}>
+                  <ArrowRight className="w-4 h-4" style={{ color: '#30363d' }} />
+                </motion.div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ================================================
+          QUICK STATS COMPARISON — WEEK OVER WEEK
+          ================================================ */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.4 }}
+      >
+        <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" style={{ color: '#e3b341' }} />
+                <CardTitle className="text-sm" style={{ color: '#c9d1d9' }}>Week-over-Week Comparison</CardTitle>
+              </div>
+              <Badge variant="outline" className="text-[9px] px-1.5" style={{ borderColor: '#30363d', color: '#8b949e' }}>This week vs last</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { label: 'Deployments', thisWeek: 47, lastWeek: 41, change: '+15%', up: true, color: '#3fb950', bars: [41, 47] },
+                { label: 'Build Time', thisWeek: 142, lastWeek: 155, change: '-8%', up: true, color: '#58a6ff', bars: [155, 142], unit: 's' },
+                { label: 'Success Rate', thisWeek: 96, lastWeek: 94, change: '+2%', up: true, color: '#a371f7', bars: [94, 96], unit: '%' },
+                { label: 'Error Rate', thisWeek: 4, lastWeek: 6, change: '-33%', up: true, color: '#e3b341', bars: [6, 4], unit: '%' },
+              ].map((metric, i) => (
+                <motion.div
+                  key={metric.label}
+                  className="p-3 rounded-lg border"
+                  style={{ backgroundColor: '#0d1117', borderColor: `${metric.color}20` }}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.08, duration: 0.3 }}
+                >
+                  <p className="text-[10px] font-medium mb-2" style={{ color: '#8b949e' }}>{metric.label}</p>
+                  <div className="flex items-end gap-2 mb-2">
+                    {/* Last week bar */}
+                    <div className="flex-1">
+                      <div className="h-16 rounded-md overflow-hidden flex items-end" style={{ backgroundColor: '#21262d' }}>
+                        <motion.div
+                          className="w-full rounded-t-md"
+                          style={{ backgroundColor: '#30363d' }}
+                          initial={{ height: 0 }}
+                          animate={{ height: `${(metric.lastWeek / Math.max(...metric.bars)) * 100}%` }}
+                          transition={{ delay: 0.3 + i * 0.1, duration: 0.6, ease: 'easeOut' }}
+                        />
+                      </div>
+                      <p className="text-[8px] text-center mt-1" style={{ color: '#484f58' }}>Last</p>
+                    </div>
+                    {/* This week bar */}
+                    <div className="flex-1">
+                      <div className="h-16 rounded-md overflow-hidden flex items-end" style={{ backgroundColor: '#21262d' }}>
+                        <motion.div
+                          className="w-full rounded-t-md"
+                          style={{ backgroundColor: metric.color }}
+                          initial={{ height: 0 }}
+                          animate={{ height: `${(metric.thisWeek / Math.max(...metric.bars)) * 100}%` }}
+                          transition={{ delay: 0.4 + i * 0.1, duration: 0.6, ease: 'easeOut' }}
+                        />
+                      </div>
+                      <p className="text-[8px] text-center mt-1" style={{ color: '#484f58' }}>This</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold" style={{ color: '#c9d1d9' }}>
+                      {metric.thisWeek}{metric.unit || ''}
+                    </span>
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${metric.color}15`, color: metric.color }}>
+                      {metric.change}
+                    </span>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ================================================
+          RECENT REPOSITORIES WIDGET
+          ================================================ */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35, duration: 0.4 }}
+      >
+        <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FolderOpen className="w-4 h-4" style={{ color: '#58a6ff' }} />
+                <CardTitle className="text-sm" style={{ color: '#c9d1d9' }}>Recent Repositories</CardTitle>
+              </div>
+              <button className="text-[10px] flex items-center gap-1 hover:underline" style={{ color: '#58a6ff' }}>
+                View All <ArrowRight className="w-2.5 h-2.5" />
+              </button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-72 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#30363d transparent' }}>
+              {[
+                { name: 'gitdeploy-core', desc: 'Main platform backend service', lang: 'TypeScript', langColor: '#3178c6', stars: 284, updated: '2h ago' },
+                { name: 'dashboard-ui', desc: 'React dashboard components', lang: 'TypeScript', langColor: '#3178c6', stars: 156, updated: '5h ago' },
+                { name: 'deploy-agent', desc: 'CI/CD deployment automation agent', lang: 'Python', langColor: '#3572A5', stars: 98, updated: '1d ago' },
+                { name: 'infra-config', desc: 'Infrastructure as code configs', lang: 'HCL', langColor: '#844fba', stars: 42, updated: '2d ago' },
+                { name: 'docs-site', desc: 'Documentation website built with Next.js', lang: 'MDX', langColor: '#fcb32c', stars: 73, updated: '3d ago' },
+                { name: 'auth-service', desc: 'OAuth2 authentication microservice', lang: 'Go', langColor: '#00add8', stars: 121, updated: '4d ago' },
+              ].map((repo, i) => (
+                <motion.div
+                  key={repo.name}
+                  className="flex items-center gap-3 p-2.5 rounded-lg border transition-colors hover:bg-[#0d1117] cursor-pointer"
+                  style={{ borderColor: '#21262d' }}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.06, duration: 0.3 }}
+                >
+                  <div className="p-1.5 rounded-lg shrink-0" style={{ backgroundColor: '#21262d' }}>
+                    <FolderOpen className="w-4 h-4" style={{ color: '#8b949e' }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-medium truncate" style={{ color: '#58a6ff' }}>{repo.name}</p>
+                    </div>
+                    <p className="text-[10px] truncate" style={{ color: '#8b949e' }}>{repo.desc}</p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: repo.langColor }} />
+                      <span className="text-[9px]" style={{ color: '#8b949e' }}>{repo.lang}</span>
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                      <Star className="w-3 h-3" style={{ color: '#e3b341' }} />
+                      <span className="text-[9px]" style={{ color: '#8b949e' }}>{repo.stars}</span>
+                    </div>
+                    <span className="text-[9px]" style={{ color: '#484f58' }}>{repo.updated}</span>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* ================================================

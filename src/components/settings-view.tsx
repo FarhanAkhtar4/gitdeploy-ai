@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAppStore } from '@/store/app-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -77,6 +77,18 @@ import {
   LayoutGrid,
   Workflow,
   Terminal,
+  CreditCard,
+  CheckCircle2,
+  XCircle,
+  ExternalLink,
+  Cloud,
+  DatabaseIcon,
+  LogOut,
+  Link2,
+  Smartphone,
+  Megaphone,
+  BellRing,
+  FileText,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -182,6 +194,36 @@ export function SettingsView() {
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deleteCountdown, setDeleteCountdown] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Notification preferences state
+  const [notifEmail, setNotifEmail] = useState(true);
+  const [notifPush, setNotifPush] = useState(true);
+  const [notifDeployment, setNotifDeployment] = useState(true);
+  const [notifSecurity, setNotifSecurity] = useState(true);
+  const [notifWeeklyDigest, setNotifWeeklyDigest] = useState(false);
+  const [notifMarketing, setNotifMarketing] = useState(false);
+
+  // Connected accounts state
+  const [connectedAccounts, setConnectedAccounts] = useState([
+    { id: 'github', name: 'GitHub', icon: Github, connected: isGithubConnected, lastSynced: '2 minutes ago', color: '#c9d1d9' },
+    { id: 'gitlab', name: 'GitLab', icon: GitBranch, connected: false, lastSynced: null, color: '#fc6d26' },
+    { id: 'bitbucket', name: 'Bitbucket', icon: Code, connected: false, lastSynced: null, color: '#2684ff' },
+    { id: 'vercel', name: 'Vercel', icon: Zap, connected: true, lastSynced: '15 minutes ago', color: '#ffffff' },
+    { id: 'netlify', name: 'Netlify', icon: Globe, connected: false, lastSynced: null, color: '#00c7b7' },
+    { id: 'aws', name: 'AWS', icon: Cloud, connected: false, lastSynced: null, color: '#ff9900' },
+  ]);
+
+  // Activity log data
+  const activityLog = useMemo(() => [
+    { id: 1, action: 'Logged in from Chrome on macOS', timestamp: '2 minutes ago', ip: '192.168.1.42', type: 'login' as const },
+    { id: 2, action: 'API key regenerated', timestamp: '1 hour ago', ip: '192.168.1.42', type: 'api_key' as const },
+    { id: 3, action: 'Notification preferences updated', timestamp: '3 hours ago', ip: '192.168.1.42', type: 'settings' as const },
+    { id: 4, action: 'Connected Vercel account', timestamp: 'Yesterday at 4:32 PM', ip: '10.0.0.15', type: 'connection' as const },
+    { id: 5, action: 'Logged in from Safari on iPhone', timestamp: '2 days ago', ip: '172.16.0.8', type: 'login' as const },
+    { id: 6, action: 'Security audit completed', timestamp: '3 days ago', ip: '192.168.1.42', type: 'security' as const },
+    { id: 7, action: 'Upgraded to Pro plan', timestamp: '1 week ago', ip: '192.168.1.42', type: 'billing' as const },
+    { id: 8, action: 'GitHub token scope updated', timestamp: '2 weeks ago', ip: '192.168.1.42', type: 'api_key' as const },
+  ], []);
 
   // API usage mock data
   const apiUsage = {
@@ -628,6 +670,390 @@ export function SettingsView() {
                   <ArrowUpRight className="w-3 h-3" />
                 </Button>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ============ COMPREHENSIVE NOTIFICATION PREFERENCES ============ */}
+      <motion.div custom={2} variants={cardVariants} initial="hidden" animate="visible">
+        <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2" style={{ color: '#8b949e' }}>
+                <BellRing className="w-4 h-4" style={{ color: '#e3b341' }} /> Notification Preferences
+              </CardTitle>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#e3b34115', color: '#e3b341', border: '1px solid #e3b34125' }}>
+                {[
+                  notifEmail, notifPush, notifDeployment, notifSecurity, notifWeeklyDigest, notifMarketing
+                ].filter(Boolean).length}/6 active
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {[
+              { label: 'Email notifications', desc: 'Receive important updates and alerts via email', state: notifEmail, setter: setNotifEmail, icon: Mail, color: '#58a6ff' },
+              { label: 'Push notifications', desc: 'Get real-time push notifications in your browser', state: notifPush, setter: setNotifPush, icon: Smartphone, color: '#a371f7' },
+              { label: 'Deployment alerts', desc: 'Notify when deployments succeed, fail, or need attention', state: notifDeployment, setter: setNotifDeployment, icon: Rocket, color: '#3fb950' },
+              { label: 'Security alerts', desc: 'Critical security notifications for your account and repos', state: notifSecurity, setter: setNotifSecurity, icon: Shield, color: '#f85149' },
+              { label: 'Weekly digest', desc: 'Summary of your activity, deployments, and metrics each week', state: notifWeeklyDigest, setter: setNotifWeeklyDigest, icon: Calendar, color: '#e3b341' },
+              { label: 'Marketing emails', desc: 'Product updates, tips, and promotional content', state: notifMarketing, setter: setNotifMarketing, icon: Megaphone, color: '#484f58' },
+            ].map((pref, i) => {
+              const Icon = pref.icon;
+              return (
+                <motion.div
+                  key={pref.label}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 + i * 0.05, duration: 0.3 }}
+                  className="flex items-center justify-between p-3 rounded-xl transition-all duration-200 hover:translate-x-1"
+                  style={{ backgroundColor: '#0d1117', border: '1px solid #21262d' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${pref.color}40`; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#21262d'; }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg" style={{ backgroundColor: `${pref.color}15` }}>
+                      <Icon className="w-4 h-4" style={{ color: pref.color }} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium" style={{ color: '#c9d1d9' }}>{pref.label}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: '#484f58' }}>{pref.desc}</p>
+                    </div>
+                  </div>
+                  <Switch checked={pref.state} onCheckedChange={pref.setter} />
+                </motion.div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ============ BILLING & PLANS ============ */}
+      <motion.div custom={3} variants={cardVariants} initial="hidden" animate="visible">
+        <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2" style={{ color: '#8b949e' }}>
+                <CreditCard className="w-4 h-4" style={{ color: '#3fb950' }} /> Billing & Plans
+              </CardTitle>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#3fb95015', color: '#3fb950', border: '1px solid #3fb95025' }}>
+                Current: {user?.plan || 'Free'}
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Free Plan */}
+              <div
+                className="relative p-4 rounded-xl border transition-all duration-200"
+                style={{ backgroundColor: '#0d1117', borderColor: user?.plan === 'free' ? '#58a6ff' : '#21262d' }}
+              >
+                {user?.plan === 'free' && (
+                  <span className="absolute -top-2 left-3 text-[8px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#58a6ff15', color: '#58a6ff', border: '1px solid #58a6ff25' }}>
+                    CURRENT
+                  </span>
+                )}
+                <div className="text-center mb-3">
+                  <p className="text-sm font-bold" style={{ color: '#c9d1d9' }}>Free</p>
+                  <p className="text-2xl font-bold mt-1" style={{ color: '#8b949e' }}>$0<span className="text-xs font-normal">/mo</span></p>
+                </div>
+                <div className="space-y-1.5">
+                  {[
+                    { text: '100 AI requests/month', included: true },
+                    { text: '3 projects', included: true },
+                    { text: 'Community support', included: true },
+                    { text: 'Basic analytics', included: true },
+                    { text: 'Custom domains', included: false },
+                    { text: 'Priority support', included: false },
+                  ].map((feat) => (
+                    <div key={feat.text} className="flex items-center gap-2 text-[10px]">
+                      {feat.included ? (
+                        <CheckCircle2 className="w-3 h-3 shrink-0" style={{ color: '#3fb950' }} />
+                      ) : (
+                        <XCircle className="w-3 h-3 shrink-0" style={{ color: '#30363d' }} />
+                      )}
+                      <span style={{ color: feat.included ? '#8b949e' : '#484f58' }}>{feat.text}</span>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  className="w-full mt-3 text-xs"
+                  variant="outline"
+                  disabled={user?.plan === 'free'}
+                  style={{ borderColor: '#30363d', color: '#8b949e' }}
+                >
+                  {user?.plan === 'free' ? 'Current Plan' : 'Downgrade'}
+                </Button>
+              </div>
+
+              {/* Pro Plan */}
+              <div
+                className="relative p-4 rounded-xl border transition-all duration-200"
+                style={{
+                  backgroundColor: '#0d1117',
+                  borderColor: user?.plan === 'pro' ? '#58a6ff' : '#30363d',
+                  boxShadow: user?.plan !== 'pro' ? '0 0 20px rgba(88,166,255,0.1)' : 'none',
+                }}
+              >
+                {user?.plan !== 'pro' && (
+                  <span className="absolute -top-2 left-3 text-[8px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#58a6ff15', color: '#58a6ff', border: '1px solid #58a6ff25' }}>
+                    POPULAR
+                  </span>
+                )}
+                {user?.plan === 'pro' && (
+                  <span className="absolute -top-2 left-3 text-[8px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#3fb95015', color: '#3fb950', border: '1px solid #3fb95025' }}>
+                    CURRENT
+                  </span>
+                )}
+                <div className="text-center mb-3">
+                  <p className="text-sm font-bold" style={{ color: '#58a6ff' }}>Pro</p>
+                  <p className="text-2xl font-bold mt-1" style={{ color: '#c9d1d9' }}>$9<span className="text-xs font-normal text-[#8b949e]">/mo</span></p>
+                </div>
+                <div className="space-y-1.5">
+                  {[
+                    { text: 'Unlimited AI requests', included: true },
+                    { text: 'Unlimited projects', included: true },
+                    { text: 'Priority support', included: true },
+                    { text: 'Advanced analytics', included: true },
+                    { text: 'Custom domains', included: true },
+                    { text: 'API access', included: true },
+                  ].map((feat) => (
+                    <div key={feat.text} className="flex items-center gap-2 text-[10px]">
+                      <CheckCircle2 className="w-3 h-3 shrink-0" style={{ color: '#3fb950' }} />
+                      <span style={{ color: '#8b949e' }}>{feat.text}</span>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  className="w-full mt-3 text-xs"
+                  style={{
+                    background: user?.plan === 'pro' ? '#30363d' : 'linear-gradient(135deg, #58a6ff, #238636)',
+                    color: user?.plan === 'pro' ? '#8b949e' : 'white',
+                    boxShadow: user?.plan !== 'pro' ? '0 0 15px rgba(88,166,255,0.3)' : 'none',
+                  }}
+                  disabled={user?.plan === 'pro'}
+                  onClick={() => toast({ title: 'Upgrade to Pro', description: 'Redirecting to checkout...' })}
+                >
+                  {user?.plan === 'pro' ? 'Current Plan' : 'Upgrade to Pro'}
+                  {user?.plan !== 'pro' && <ArrowUpRight className="w-3 h-3 ml-1" />}
+                </Button>
+              </div>
+
+              {/* Enterprise Plan */}
+              <div
+                className="relative p-4 rounded-xl border transition-all duration-200"
+                style={{ backgroundColor: '#0d1117', borderColor: user?.plan === 'enterprise' ? '#e3b341' : '#21262d' }}
+              >
+                {user?.plan === 'enterprise' && (
+                  <span className="absolute -top-2 left-3 text-[8px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#e3b34115', color: '#e3b341', border: '1px solid #e3b34125' }}>
+                    CURRENT
+                  </span>
+                )}
+                <div className="text-center mb-3">
+                  <p className="text-sm font-bold" style={{ color: '#e3b341' }}>Enterprise</p>
+                  <p className="text-2xl font-bold mt-1" style={{ color: '#c9d1d9' }}>$29<span className="text-xs font-normal text-[#8b949e]">/mo</span></p>
+                </div>
+                <div className="space-y-1.5">
+                  {[
+                    { text: 'Everything in Pro', included: true },
+                    { text: 'Team collaboration', included: true },
+                    { text: 'SSO / SAML', included: true },
+                    { text: 'Dedicated support', included: true },
+                    { text: 'SLA guarantee', included: true },
+                    { text: 'Custom integrations', included: true },
+                  ].map((feat) => (
+                    <div key={feat.text} className="flex items-center gap-2 text-[10px]">
+                      <CheckCircle2 className="w-3 h-3 shrink-0" style={{ color: '#e3b341' }} />
+                      <span style={{ color: '#8b949e' }}>{feat.text}</span>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  className="w-full mt-3 text-xs"
+                  variant="outline"
+                  disabled={user?.plan === 'enterprise'}
+                  style={{ borderColor: '#e3b34150', color: '#e3b341' }}
+                  onClick={() => toast({ title: 'Contact Sales', description: 'Our team will reach out within 24 hours.' })}
+                >
+                  {user?.plan === 'enterprise' ? 'Current Plan' : 'Contact Sales'}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ============ CONNECTED ACCOUNTS ============ */}
+      <motion.div custom={2} variants={cardVariants} initial="hidden" animate="visible">
+        <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2" style={{ color: '#8b949e' }}>
+                <Link2 className="w-4 h-4" style={{ color: '#a371f7' }} /> Connected Accounts
+              </CardTitle>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#a371f715', color: '#a371f7', border: '1px solid #a371f725' }}>
+                {connectedAccounts.filter(a => a.connected).length}/{connectedAccounts.length} connected
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {connectedAccounts.map((account, i) => {
+              const Icon = account.icon;
+              return (
+                <motion.div
+                  key={account.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.05 + i * 0.04, duration: 0.3 }}
+                  className="flex items-center justify-between p-3 rounded-xl transition-all duration-200 hover:translate-x-1"
+                  style={{ backgroundColor: '#0d1117', border: '1px solid #21262d' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${account.color}40`; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#21262d'; }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg" style={{ backgroundColor: `${account.color}15` }}>
+                      <Icon className="w-4 h-4" style={{ color: account.color }} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-medium" style={{ color: '#c9d1d9' }}>{account.name}</p>
+                        {/* Connection status indicator */}
+                        <span className="flex items-center gap-1">
+                          <span
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: account.connected ? '#3fb950' : '#484f58' }}
+                          />
+                          <span className="text-[9px] font-medium" style={{ color: account.connected ? '#3fb950' : '#484f58' }}>
+                            {account.connected ? 'Connected' : 'Not connected'}
+                          </span>
+                        </span>
+                      </div>
+                      {account.connected && account.lastSynced && (
+                        <p className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: '#484f58' }}>
+                          <RefreshCw className="w-2.5 h-2.5" /> Last synced {account.lastSynced}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {account.connected ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-[10px] h-7 gap-1"
+                        style={{ borderColor: '#f8514940', color: '#f85149' }}
+                        onClick={() => {
+                          setConnectedAccounts(prev =>
+                            prev.map(a => a.id === account.id ? { ...a, connected: false, lastSynced: null } : a)
+                          );
+                          toast({ title: 'Disconnected', description: `${account.name} account has been disconnected` });
+                        }}
+                      >
+                        <LogOut className="w-3 h-3" /> Disconnect
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="text-[10px] h-7 gap-1"
+                        style={{
+                          background: `linear-gradient(135deg, ${account.color}80, ${account.color})`,
+                          color: 'white',
+                          boxShadow: `0 0 10px ${account.color}30`,
+                        }}
+                        onClick={() => {
+                          setConnectedAccounts(prev =>
+                            prev.map(a => a.id === account.id ? { ...a, connected: true, lastSynced: 'Just now' } : a)
+                          );
+                          toast({ title: 'Connected', description: `${account.name} account has been connected` });
+                        }}
+                      >
+                        <Link2 className="w-3 h-3" /> Connect
+                      </Button>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ============ ACTIVITY LOG ============ */}
+      <motion.div custom={2} variants={cardVariants} initial="hidden" animate="visible">
+        <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2" style={{ color: '#8b949e' }}>
+                <FileText className="w-4 h-4" style={{ color: '#79c0ff' }} /> Activity Log
+              </CardTitle>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#79c0ff15', color: '#79c0ff', border: '1px solid #79c0ff25' }}>
+                Last 30 days
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-0">
+              {activityLog.map((entry, i) => {
+                const typeConfig: Record<string, { icon: React.ElementType; color: string; label: string }> = {
+                  login: { icon: UserIcon, color: '#58a6ff', label: 'Login' },
+                  api_key: { icon: Key, color: '#e3b341', label: 'API Key' },
+                  settings: { icon: Bell, color: '#a371f7', label: 'Settings' },
+                  connection: { icon: Link2, color: '#3fb950', label: 'Connection' },
+                  security: { icon: Shield, color: '#f85149', label: 'Security' },
+                  billing: { icon: CreditCard, color: '#e3b341', label: 'Billing' },
+                };
+                const config = typeConfig[entry.type] || typeConfig.settings;
+                const Icon = config.icon;
+                return (
+                  <motion.div
+                    key={entry.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.05 + i * 0.04, duration: 0.25 }}
+                    className="flex items-center gap-3 py-2.5 px-2 rounded-lg transition-colors hover:bg-[#0d1117] relative group"
+                  >
+                    {/* Timeline connector */}
+                    {i < activityLog.length - 1 && (
+                      <div className="absolute left-[21px] top-9 bottom-0 w-px" style={{ backgroundColor: '#21262d' }} />
+                    )}
+                    <div
+                      className="p-1.5 rounded-md shrink-0 z-10"
+                      style={{ backgroundColor: `${config.color}15` }}
+                    >
+                      <Icon className="w-3.5 h-3.5" style={{ color: config.color }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-[11px]" style={{ color: '#c9d1d9' }}>{entry.action}</p>
+                        <span
+                          className="text-[8px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                          style={{ backgroundColor: `${config.color}15`, color: config.color, border: `1px solid ${config.color}25` }}
+                        >
+                          {config.label}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="text-[9px] flex items-center gap-1" style={{ color: '#484f58' }}>
+                          <Clock className="w-2.5 h-2.5" /> {entry.timestamp}
+                        </span>
+                        <span className="text-[9px] flex items-center gap-1" style={{ color: '#484f58' }}>
+                          <Globe className="w-2.5 h-2.5" /> {entry.ip}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+            {/* View All link */}
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid #21262d' }}>
+              <button
+                className="flex items-center gap-1 text-[11px] font-medium mx-auto transition-colors hover:underline"
+                style={{ color: '#58a6ff' }}
+                onClick={() => toast({ title: 'Activity Log', description: 'Full audit log feature coming soon!' })}
+              >
+                View Full Audit Log <ArrowRight className="w-3 h-3" />
+              </button>
             </div>
           </CardContent>
         </Card>

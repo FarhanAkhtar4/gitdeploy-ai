@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback, type ChangeEvent } from 'react';
 import { useAppStore, type ChatMessage } from '@/store/app-store';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -61,6 +61,15 @@ import {
   Database,
   ArrowRight,
   Square,
+  Plus,
+  X,
+  FileText,
+  Play,
+  PlayCircle,
+  MonitorPlay,
+  Volume2,
+  Lock,
+  RefreshCw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -158,6 +167,60 @@ const RECENT_CONVERSATIONS = [
   { title: 'GitHub Actions workflow optimization', time: '5 hours ago' },
   { title: 'Railway vs Render comparison', time: 'Yesterday' },
 ];
+
+/* ─── Conversation History with Date Groups ─── */
+interface ConversationItem {
+  id: string;
+  title: string;
+  preview: string;
+  timestamp: Date;
+  messageCount: number;
+}
+
+const INITIAL_CONVERSATIONS: ConversationItem[] = [
+  { id: 'conv-1', title: 'Vercel deployment 502 error', preview: 'How do I fix the 502 error on my Vercel deployment?', timestamp: new Date(), messageCount: 8 },
+  { id: 'conv-2', title: 'GitHub Actions workflow', preview: 'Help me optimize my CI/CD pipeline for faster builds', timestamp: new Date(), messageCount: 12 },
+  { id: 'conv-3', title: 'Docker compose setup', preview: 'What is the best way to set up Docker Compose for dev?', timestamp: new Date(Date.now() - 86400000), messageCount: 6 },
+  { id: 'conv-4', title: 'Railway vs Render comparison', preview: 'Which platform is better for a small Next.js app?', timestamp: new Date(Date.now() - 86400000), messageCount: 4 },
+  { id: 'conv-5', title: 'Custom domain with SSL', preview: 'How to configure a custom domain with HTTPS?', timestamp: new Date(Date.now() - 3 * 86400000), messageCount: 5 },
+  { id: 'conv-6', title: 'Blue-green deployment strategy', preview: 'Explain blue-green deployments for zero-downtime', timestamp: new Date(Date.now() - 3 * 86400000), messageCount: 7 },
+  { id: 'conv-7', title: 'Kubernetes pod autoscaling', preview: 'How to configure HPA for my K8s cluster?', timestamp: new Date(Date.now() - 7 * 86400000), messageCount: 10 },
+  { id: 'conv-8', title: 'Environment variable management', preview: 'Best practices for managing env vars across environments', timestamp: new Date(Date.now() - 14 * 86400000), messageCount: 3 },
+  { id: 'conv-9', title: 'Monitoring with Grafana', preview: 'Set up Grafana dashboards for deployment monitoring', timestamp: new Date(Date.now() - 30 * 86400000), messageCount: 9 },
+];
+
+function getDateGroup(date: Date): string {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const weekAgo = new Date(today.getTime() - 7 * 86400000);
+  const convDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  if (convDate.getTime() >= today.getTime()) return 'Today';
+  if (convDate.getTime() >= yesterday.getTime()) return 'Yesterday';
+  if (convDate.getTime() >= weekAgo.getTime()) return 'This Week';
+  return 'Older';
+}
+
+/* ─── Simulated Code Execution Output ─── */
+const SIMULATED_OUTPUTS: Record<string, { console: string; exitCode: number }> = {
+  bash: { console: '$ npx vercel --prod\n⠋ Building...\n✓ Build completed in 12.4s\n✓ Deployment ready: https://my-app.vercel.app\n✓ Production: https://my-app-git-main.vercel.app', exitCode: 0 },
+  sh: { console: '$ sh build.sh\nBuilding project...\n✓ Compiled successfully\n✓ Output size: 2.4MB\nDone in 8.2s', exitCode: 0 },
+  yaml: { console: '$ act -j build\n[build.yml/build] 🚀 Starting job\n[build.yml/build] ✅ Checkout\n[build.yml/build] ✅ Setup Node\n[build.yml/build] ✅ Install deps\n[build.yml/build] ✅ Build\n[build.yml/build] ✅ Test\nJob completed successfully', exitCode: 0 },
+  javascript: { console: 'node index.js\nServer running on port 3000\nDatabase connected ✓\n5 routes registered\nReady to accept connections', exitCode: 0 },
+  typescript: { console: 'npx tsx main.ts\nCompiled successfully\nServer running on port 3000\nDatabase connected ✓\nReady to accept connections', exitCode: 0 },
+  python: { console: 'python main.py\n * Serving Flask app \'main\'\n * Running on http://127.0.0.1:5000\n * Debugger: active\nPress CTRL+C to quit', exitCode: 0 },
+  dockerfile: { console: 'docker build -t myapp .\n[+] Building 24.5s\n => [1/5] FROM node:20-alpine\n => [2/5] COPY package*.json ./\n => [3/5] RUN npm ci\n => [4/5] COPY . .\n => [5/5] RUN npm run build\n => exporting to image\nSuccessfully built: myapp:latest', exitCode: 0 },
+};
+
+function getSimulatedOutput(lang: string): { console: string; exitCode: number } {
+  const lower = lang.toLowerCase();
+  if (SIMULATED_OUTPUTS[lower]) return SIMULATED_OUTPUTS[lower];
+  if (lower === 'yml') return SIMULATED_OUTPUTS['yaml'];
+  if (lower === 'ts') return SIMULATED_OUTPUTS['typescript'];
+  if (lower === 'js') return SIMULATED_OUTPUTS['javascript'];
+  if (lower === 'py') return SIMULATED_OUTPUTS['python'];
+  return { console: `$ run ${lang || 'script'}\nExecuting...\n✓ Process completed successfully\nDone in 3.2s`, exitCode: 0 };
+}
 
 const AI_CAPABILITIES = [
   { icon: Code, title: 'Code Review', desc: 'Analyze code for bugs & improvements', color: '#58a6ff' },
@@ -420,8 +483,8 @@ function highlightLinePart(text: string, lineIdx: number, startKey: number): Rea
   return result;
 }
 
-/* ─── Code Block Renderer with Syntax Highlighting + Line Numbers ─── */
-function MessageContent({ content }: { content: string }) {
+/* ─── Code Block Renderer with Syntax Highlighting + Line Numbers + Run Preview ─── */
+function MessageContent({ content, onRunPreview }: { content: string; onRunPreview?: (code: string, language: string, codeId: string) => void }) {
   const parts = content.split(/(```[\s\S]*?```)/g);
 
   return (
@@ -434,6 +497,7 @@ function MessageContent({ content }: { content: string }) {
           const code = firstNewline > 0 ? lines.slice(firstNewline + 1) : lines;
           const codeLines = code.split('\n');
           const lineCount = codeLines.length;
+          const codeId = `code-${i}-${code.slice(0, 20).replace(/\s/g, '_')}`;
 
           return (
             <div
@@ -451,7 +515,24 @@ function MessageContent({ content }: { content: string }) {
                     <span>{language}</span>
                     <span style={{ color: '#484f58' }}>{lineCount} lines</span>
                   </div>
-                  <CopyButton text={code} />
+                  <div className="flex items-center gap-1">
+                    {onRunPreview && (
+                      <button
+                        onClick={() => onRunPreview(code, language, codeId)}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium transition-all duration-200 hover:scale-105"
+                        style={{
+                          backgroundColor: '#3fb95015',
+                          color: '#3fb950',
+                          border: '1px solid #3fb95025',
+                        }}
+                        title="Run code preview"
+                      >
+                        <Play className="w-2.5 h-2.5" />
+                        Run
+                      </button>
+                    )}
+                    <CopyButton text={code} />
+                  </div>
                 </div>
               )}
               {!language && (
@@ -460,7 +541,24 @@ function MessageContent({ content }: { content: string }) {
                   style={{ backgroundColor: '#161b22', color: '#8b949e', borderBottom: '1px solid #21262d' }}
                 >
                   <span style={{ color: '#484f58' }}>{lineCount} lines</span>
-                  <CopyButton text={code} />
+                  <div className="flex items-center gap-1">
+                    {onRunPreview && (
+                      <button
+                        onClick={() => onRunPreview(code, '', codeId)}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium transition-all duration-200 hover:scale-105"
+                        style={{
+                          backgroundColor: '#3fb95015',
+                          color: '#3fb950',
+                          border: '1px solid #3fb95025',
+                        }}
+                        title="Run code preview"
+                      >
+                        <Play className="w-2.5 h-2.5" />
+                        Run
+                      </button>
+                    )}
+                    <CopyButton text={code} />
+                  </div>
                 </div>
               )}
               <div className="flex">
@@ -578,7 +676,27 @@ export function ChatView() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const aiModeRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Conversation history state
+  const [conversations, setConversations] = useState<ConversationItem[]>(INITIAL_CONVERSATIONS);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>('conv-1');
+
+  // File attachment state
+  const [attachedFiles, setAttachedFiles] = useState<{ name: string; size: number; type: string }[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  // Voice recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Code preview state
+  const [previewingCodeId, setPreviewingCodeId] = useState<string | null>(null);
+  const [previewOutput, setPreviewOutput] = useState<{ console: string; exitCode: number } | null>(null);
+  const [previewRunning, setPreviewRunning] = useState(false);
+  const [previewTab, setPreviewTab] = useState<'console' | 'preview'>('console');
 
   // Session timer
   useEffect(() => {
@@ -806,6 +924,101 @@ export function ChatView() {
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Voice recording toggle
+  const toggleRecording = useCallback(() => {
+    if (isRecording) {
+      setIsRecording(false);
+      setRecordingDuration(0);
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+      toast({ title: 'Voice input', description: 'Recording stopped. (Voice transcription is a demo feature.)' });
+    } else {
+      setIsRecording(true);
+      setRecordingDuration(0);
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+      toast({ title: 'Recording...', description: 'Listening for voice input' });
+    }
+  }, [isRecording, toast]);
+
+  // Stop recording on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+    };
+  }, []);
+
+  // File attachment handler
+  const handleFileAttach = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const newFiles = Array.from(files).map(f => ({
+      name: f.name,
+      size: f.size,
+      type: f.type || 'unknown',
+    }));
+    setAttachedFiles(prev => [...prev, ...newFiles]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, []);
+
+  const removeAttachedFile = useCallback((index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  // Run code preview
+  const runCodePreview = useCallback((code: string, language: string, codeId: string) => {
+    setPreviewingCodeId(codeId);
+    setPreviewRunning(true);
+    setPreviewOutput(null);
+    setTimeout(() => {
+      const output = getSimulatedOutput(language);
+      setPreviewOutput(output);
+      setPreviewRunning(false);
+    }, 1500 + Math.random() * 1000);
+  }, []);
+
+  // New conversation
+  const createNewConversation = useCallback(() => {
+    const newConv: ConversationItem = {
+      id: `conv-${Date.now()}`,
+      title: 'New conversation',
+      preview: 'Start a new chat...',
+      timestamp: new Date(),
+      messageCount: 0,
+    };
+    setConversations(prev => [newConv, ...prev]);
+    setActiveConversationId(newConv.id);
+    clearChatMessages();
+    setShowDiff(false);
+    toast({ title: 'New conversation', description: 'Started a fresh chat session' });
+  }, [clearChatMessages, toast]);
+
+  // Delete conversation
+  const deleteConversation = useCallback((id: string) => {
+    setConversations(prev => prev.filter(c => c.id !== id));
+    toast({ title: 'Conversation deleted', description: 'The conversation has been removed' });
+  }, [toast]);
+
+  // Group conversations by date
+  const groupedConversations = useMemo(() => {
+    const groups: Record<string, ConversationItem[]> = {};
+    for (const conv of conversations) {
+      const group = getDateGroup(conv.timestamp);
+      if (!groups[group]) groups[group] = [];
+      groups[group].push(conv);
+    }
+    return groups;
+  }, [conversations]);
+
   const currentChips = CONTEXT_CHIPS[contextType] || CONTEXT_CHIPS.default;
   const currentMode = AI_MODES.find(m => m.value === aiMode)!;
   const filteredTopics = CONVERSATION_TOPICS.filter(t =>
@@ -914,21 +1127,81 @@ export function ChatView() {
                 </div>
               </div>
 
-              {/* Conversation History */}
+              {/* New Conversation Button */}
+              <button
+                onClick={createNewConversation}
+                className="w-full flex items-center justify-center gap-1.5 text-[11px] font-medium px-3 py-2 rounded-lg transition-all duration-200 hover:scale-[1.02]"
+                style={{
+                  backgroundColor: '#58a6ff15',
+                  color: '#58a6ff',
+                  border: '1px solid #58a6ff25',
+                }}
+              >
+                <Plus className="w-3 h-3" />
+                New Chat
+              </button>
+
+              {/* Conversation History with Date Groups */}
               <div>
                 <h4 className="text-[9px] font-semibold uppercase tracking-wider mb-1.5 flex items-center gap-1" style={{ color: '#484f58' }}>
-                  <History className="w-2.5 h-2.5" /> History
+                  <History className="w-2.5 h-2.5" /> Conversations
+                  <span className="ml-auto text-[8px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: '#58a6ff15', color: '#58a6ff' }}>
+                    {conversations.length}
+                  </span>
                 </h4>
-                <div className="space-y-0.5">
-                  {RECENT_CONVERSATIONS.map((conv) => (
-                    <button
-                      key={conv.title}
-                      className="w-full text-left px-2 py-1.5 rounded-lg transition-colors hover:bg-[#161b22]"
-                      onClick={() => sendMessage(`Continue: ${conv.title}`)}
-                    >
-                      <p className="text-[10px] truncate" style={{ color: '#8b949e' }}>{conv.title}</p>
-                      <p className="text-[9px] mt-0.5" style={{ color: '#484f58' }}>{conv.time}</p>
-                    </button>
+                <div className="space-y-2">
+                  {Object.entries(groupedConversations).map(([group, items]) => (
+                    <div key={group}>
+                      <p className="text-[8px] font-semibold uppercase tracking-wider px-1 mb-1" style={{ color: '#484f58' }}>
+                        {group}
+                      </p>
+                      <div className="space-y-0.5">
+                        {items.map((conv) => (
+                          <motion.div
+                            key={conv.id}
+                            initial={{ opacity: 0, x: -5 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="group/conv relative"
+                          >
+                            <button
+                              className="w-full text-left px-2 py-1.5 rounded-lg transition-all duration-200 hover:bg-[#161b22] pr-7"
+                              style={{
+                                backgroundColor: activeConversationId === conv.id ? '#161b22' : 'transparent',
+                                borderLeft: activeConversationId === conv.id ? '2px solid #58a6ff' : '2px solid transparent',
+                              }}
+                              onClick={() => {
+                                setActiveConversationId(conv.id);
+                                sendMessage(`Continue: ${conv.title}`);
+                              }}
+                            >
+                              <p className="text-[10px] truncate font-medium" style={{ color: activeConversationId === conv.id ? '#c9d1d9' : '#8b949e' }}>{conv.title}</p>
+                              <p className="text-[9px] truncate mt-0.5" style={{ color: '#484f58' }}>{conv.preview}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[8px] flex items-center gap-0.5" style={{ color: '#484f58' }}>
+                                  <Clock className="w-2 h-2" />
+                                  {conv.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                <span className="text-[8px] flex items-center gap-0.5" style={{ color: '#484f58' }}>
+                                  <MessageCircle className="w-2 h-2" />
+                                  {conv.messageCount} msgs
+                                </span>
+                              </div>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteConversation(conv.id);
+                              }}
+                              className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover/conv:opacity-100 transition-opacity hover:bg-[#30363d]"
+                              style={{ color: '#484f58' }}
+                              title="Delete conversation"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                            </button>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1302,7 +1575,7 @@ export function ChatView() {
                           color: '#c9d1d9',
                         }}
                       >
-                        <MessageContent content={msg.content} />
+                        <MessageContent content={msg.content} onRunPreview={runCodePreview} />
                       </div>
                     </NewMessageGlow>
                     {/* Timestamp + Copy + Share + Reactions */}
@@ -1411,9 +1684,210 @@ export function ChatView() {
           </div>
         </ScrollArea>
 
+        {/* Code Execution Preview Panel */}
+        <AnimatePresence>
+          {(previewRunning || previewOutput) && previewingCodeId && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="border-t overflow-hidden"
+              style={{ borderColor: '#30363d', backgroundColor: '#0d1117' }}
+            >
+              <div className="p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded" style={{ backgroundColor: '#3fb95015' }}>
+                      <Terminal className="w-3.5 h-3.5" style={{ color: '#3fb950' }} />
+                    </div>
+                    <span className="text-xs font-medium" style={{ color: '#c9d1d9' }}>Preview Output</span>
+                    {previewRunning && (
+                      <div className="flex items-center gap-1.5 ml-2">
+                        <Loader2 className="w-3 h-3 animate-spin" style={{ color: '#58a6ff' }} />
+                        <span className="text-[10px]" style={{ color: '#58a6ff' }}>Running...</span>
+                      </div>
+                    )}
+                    {previewOutput && !previewRunning && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: previewOutput.exitCode === 0 ? '#3fb95015' : '#f8514915', color: previewOutput.exitCode === 0 ? '#3fb950' : '#f85149', border: `1px solid ${previewOutput.exitCode === 0 ? '#3fb95025' : '#f8514925'}` }}>
+                        Exit {previewOutput.exitCode}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => { setPreviewingCodeId(null); setPreviewOutput(null); setPreviewTab('console'); }}
+                    className="p-1 rounded hover:bg-[#21262d] transition-colors"
+                    style={{ color: '#484f58' }}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #21262d' }}>
+                  {/* Tab bar with working tabs */}
+                  <div className="flex items-center gap-0 border-b" style={{ borderColor: '#21262d', backgroundColor: '#161b22' }}>
+                    <button
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-medium transition-colors"
+                      style={{ color: previewTab === 'console' ? '#c9d1d9' : '#484f58', borderBottom: previewTab === 'console' ? '2px solid #58a6ff' : '2px solid transparent' }}
+                      onClick={() => setPreviewTab('console')}
+                    >
+                      <Terminal className="w-3 h-3" style={{ color: previewTab === 'console' ? '#58a6ff' : '#484f58' }} />
+                      Console
+                    </button>
+                    <button
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-medium transition-colors"
+                      style={{ color: previewTab === 'preview' ? '#c9d1d9' : '#484f58', borderBottom: previewTab === 'preview' ? '2px solid #58a6ff' : '2px solid transparent' }}
+                      onClick={() => setPreviewTab('preview')}
+                    >
+                      <MonitorPlay className="w-3 h-3" style={{ color: previewTab === 'preview' ? '#58a6ff' : '#484f58' }} />
+                      Preview
+                    </button>
+                    {/* Copy output button */}
+                    {previewOutput && !previewRunning && previewTab === 'console' && (
+                      <button
+                        className="ml-auto mr-2 p-1 rounded hover:bg-[#30363d] transition-colors"
+                        style={{ color: '#484f58' }}
+                        onClick={() => {
+                          navigator.clipboard.writeText(previewOutput.console);
+                          toast({ title: 'Copied', description: 'Console output copied to clipboard' });
+                        }}
+                        title="Copy output"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                  {/* Console output tab */}
+                  {previewTab === 'console' && (
+                    <div className="p-3 max-h-40 overflow-y-auto custom-scroll">
+                      {previewRunning ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="w-3 h-3 animate-spin" style={{ color: '#58a6ff' }} />
+                            <span className="text-[10px] font-mono" style={{ color: '#8b949e' }}>Executing code...</span>
+                          </div>
+                          {[0, 1, 2].map(i => (
+                            <motion.div
+                              key={i}
+                              className="h-2.5 rounded"
+                              style={{ backgroundColor: '#21262d' }}
+                              initial={{ width: '0%' }}
+                              animate={{ width: `${40 + Math.random() * 50}%` }}
+                              transition={{ delay: i * 0.3, duration: 0.5, repeat: Infinity, repeatType: 'reverse' }}
+                            />
+                          ))}
+                        </div>
+                      ) : previewOutput ? (
+                        <pre className="text-[11px] font-mono leading-relaxed whitespace-pre-wrap">
+                          {previewOutput.console.split('\n').map((line, i) => (
+                            <div key={i} style={{
+                              color: line.startsWith('$') ? '#e3b341' :
+                                line.includes('✓') || line.includes('✅') ? '#3fb950' :
+                                line.includes('✗') || line.includes('❌') ? '#f85149' :
+                                line.includes('Error') || line.includes('error') ? '#f85149' :
+                                line.includes('Warning') || line.includes('warning') ? '#e3b341' :
+                                '#3fb950'
+                            }}>
+                              <span className="inline-block w-6 text-right mr-3 select-none" style={{ color: '#30363d' }}>{i + 1}</span>
+                              {line}
+                            </div>
+                          ))}
+                        </pre>
+                      ) : null}
+                    </div>
+                  )}
+                  {/* Browser preview tab */}
+                  {previewTab === 'preview' && (
+                    <div>
+                      <div className="flex items-center gap-1.5 px-3 py-1.5" style={{ backgroundColor: '#161b22', borderBottom: '1px solid #21262d' }}>
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#f85149' }} />
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#e3b341' }} />
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#3fb950' }} />
+                        <div className="flex-1 mx-2 h-5 rounded-md flex items-center" style={{ backgroundColor: '#0d1117', border: '1px solid #21262d' }}>
+                          <Lock className="w-2.5 h-2.5 ml-2" style={{ color: '#3fb950' }} />
+                          <span className="text-[9px] px-2 leading-[20px] font-mono" style={{ color: '#484f58' }}>https://localhost:3000</span>
+                        </div>
+                        <button className="p-0.5 rounded hover:bg-[#30363d] transition-colors" style={{ color: '#484f58' }}>
+                          <RefreshCw className="w-3 h-3" />
+                        </button>
+                      </div>
+                      {previewRunning ? (
+                        <div className="h-32 flex items-center justify-center" style={{ backgroundColor: '#0d1117' }}>
+                          <div className="text-center">
+                            <Loader2 className="w-6 h-6 mx-auto mb-2 animate-spin" style={{ color: '#58a6ff' }} />
+                            <p className="text-[10px]" style={{ color: '#484f58' }}>Building preview...</p>
+                          </div>
+                        </div>
+                      ) : previewOutput ? (
+                        <div className="h-32 relative" style={{ backgroundColor: '#ffffff' }}>
+                          {/* Simulated browser content */}
+                          <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: '#f6f8fa' }}>
+                            <div className="text-center p-4">
+                              <div className="w-12 h-12 mx-auto mb-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#58a6ff15' }}>
+                                <Rocket className="w-6 h-6" style={{ color: '#58a6ff' }} />
+                              </div>
+                              <p className="text-sm font-semibold" style={{ color: '#24292f' }}>App Running</p>
+                              <p className="text-xs mt-1" style={{ color: '#57606a' }}>localhost:3000</p>
+                              <div className="flex items-center justify-center gap-2 mt-2">
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#3fb950' }} />
+                                <span className="text-[10px]" style={{ color: '#3fb950' }}>Live</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="h-32 flex items-center justify-center" style={{ backgroundColor: '#0d1117' }}>
+                          <div className="text-center">
+                            <MonitorPlay className="w-6 h-6 mx-auto mb-1" style={{ color: '#30363d' }} />
+                            <p className="text-[9px]" style={{ color: '#484f58' }}>Run code to see preview</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* ─── Enhanced Input Area ─── */}
         <div className="px-4 py-3 border-t" style={{ borderColor: '#30363d' }}>
           <div className="max-w-3xl mx-auto">
+            {/* Drag-and-drop overlay */}
+            <AnimatePresence>
+              {isDragOver && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 z-50 flex items-center justify-center rounded-xl"
+                  style={{ backgroundColor: 'rgba(88,166,255,0.08)', border: '2px dashed #58a6ff' }}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(false); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDragOver(false);
+                    const files = e.dataTransfer.files;
+                    if (files) {
+                      const newFiles = Array.from(files).map(f => ({
+                        name: f.name,
+                        size: f.size,
+                        type: f.type || 'unknown',
+                      }));
+                      setAttachedFiles(prev => [...prev, ...newFiles]);
+                      toast({ title: 'Files attached', description: `${files.length} file(s) added` });
+                    }
+                  }}
+                >
+                  <div className="text-center">
+                    <Paperclip className="w-8 h-8 mx-auto mb-2" style={{ color: '#58a6ff' }} />
+                    <p className="text-sm font-medium" style={{ color: '#58a6ff' }}>Drop files here</p>
+                    <p className="text-[10px] mt-1" style={{ color: '#8b949e' }}>Files will be attached to your message</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
             {/* AI Mode Selector */}
             <div className="flex items-center gap-2 mb-2">
               <div className="relative" ref={aiModeRef}>
@@ -1463,7 +1937,48 @@ export function ChatView() {
             </div>
 
             <div className="flex gap-2">
-              <div className="flex-1 relative">
+              <div className="flex-1 relative"
+                onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                onDragLeave={() => setIsDragOver(false)}
+              >
+                {/* File attachment chips */}
+                {attachedFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {attachedFiles.map((file, idx) => {
+                      const fileTypeIcon = file.type.startsWith('image/') ? MonitorPlay :
+                        file.type.startsWith('text/') || file.name.endsWith('.md') ? FileText :
+                        file.name.endsWith('.json') || file.name.endsWith('.yaml') || file.name.endsWith('.yml') ? Code :
+                        file.name.endsWith('.ts') || file.name.endsWith('.tsx') || file.name.endsWith('.js') || file.name.endsWith('.jsx') ? Code :
+                        FileText;
+                      const fileColor = file.type.startsWith('image/') ? '#a371f7' :
+                        file.type.startsWith('text/') ? '#3fb950' :
+                        file.type.includes('json') || file.type.includes('yaml') ? '#e3b341' :
+                        '#58a6ff';
+                      const FileTypeIcon = fileTypeIcon;
+                      return (
+                        <motion.div
+                          key={`${file.name}-${idx}`}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] transition-all duration-200 hover:border-[#58a6ff]"
+                          style={{ backgroundColor: '#161b22', border: '1px solid #21262d', color: '#c9d1d9' }}
+                        >
+                          <FileTypeIcon className="w-3 h-3 shrink-0" style={{ color: fileColor }} />
+                          <span className="truncate max-w-[120px]">{file.name}</span>
+                          <span className="text-[9px]" style={{ color: '#484f58' }}>{formatFileSize(file.size)}</span>
+                          <button
+                            onClick={() => removeAttachedFile(idx)}
+                            className="p-0.5 rounded hover:bg-[#30363d] transition-colors shrink-0"
+                            style={{ color: '#484f58' }}
+                          >
+                            <X className="w-2.5 h-2.5" />
+                          </button>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
                 {/* Paste code button */}
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
                   <Tooltip>
@@ -1536,6 +2051,94 @@ export function ChatView() {
               >
                 <Share2 className="w-4 h-4" />
               </Button>
+
+              {/* File attachment button */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleFileAttach}
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-xl shrink-0 h-[44px] w-[44px] transition-all duration-300"
+                style={{ borderColor: '#30363d', color: '#484f58' }}
+                title="Attach files"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Paperclip className="w-4 h-4" />
+              </Button>
+
+              {/* Voice input button */}
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="rounded-xl shrink-0 h-[44px] w-[44px] transition-all duration-300"
+                  style={{
+                    borderColor: isRecording ? '#f8514950' : '#30363d',
+                    color: isRecording ? '#f85149' : '#484f58',
+                    backgroundColor: isRecording ? '#f8514910' : 'transparent',
+                  }}
+                  title={isRecording ? 'Stop recording' : 'Voice input'}
+                  onClick={toggleRecording}
+                >
+                  {isRecording ? (
+                    <div className="relative">
+                      <Mic className="w-4 h-4" style={{ color: '#f85149' }} />
+                      {/* Pulsing red dot */}
+                      <motion.span
+                        className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full"
+                        style={{ backgroundColor: '#f85149' }}
+                        animate={{
+                          scale: [1, 1.4, 1],
+                          opacity: [1, 0.5, 1],
+                        }}
+                        transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
+                      />
+                    </div>
+                  ) : (
+                    <Mic className="w-4 h-4" />
+                  )}
+                </Button>
+                {/* Recording waveform visualization */}
+                {isRecording && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 5, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-3 py-2 rounded-xl flex items-center gap-2 whitespace-nowrap"
+                    style={{ backgroundColor: '#161b22', border: '1px solid #f8514930', boxShadow: '0 4px 12px rgba(0,0,0,0.4)' }}
+                  >
+                    {/* Animated waveform bars */}
+                    <div className="flex items-center gap-0.5 h-4">
+                      {[0, 1, 2, 3, 4, 5, 6].map(i => (
+                        <motion.div
+                          key={i}
+                          className="w-1 rounded-full"
+                          style={{ backgroundColor: '#f85149' }}
+                          animate={{
+                            height: [4, 12 + Math.random() * 8, 4],
+                          }}
+                          transition={{
+                            duration: 0.4 + Math.random() * 0.3,
+                            repeat: Infinity,
+                            delay: i * 0.08,
+                            ease: 'easeInOut',
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#f85149', animation: 'pulse 1.5s infinite' }} />
+                      <span className="text-[10px] font-mono" style={{ color: '#f85149' }}>
+                        {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
 
               {/* Send button */}
               <Button

@@ -15,6 +15,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Rocket,
   CheckCircle,
@@ -50,6 +51,22 @@ import {
   TestTube,
   Bell,
   Eye,
+  Plus,
+  Trash2,
+  Globe,
+  Database,
+  Server,
+  Code2,
+  FilePlus,
+  FileMinus,
+  FileEdit,
+  MessageSquare,
+  Mail,
+  Webhook,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Loader2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -64,7 +81,89 @@ interface DeployStep {
   logs?: string[];
 }
 
-// Confetti particles component with more particles and variety
+/* ─── Multi-Environment Data ─── */
+type Environment = 'development' | 'staging' | 'production';
+
+const ENVIRONMENT_CONFIG: Record<Environment, { label: string; color: string; icon: typeof Globe; description: string }> = {
+  development: { label: 'Development', color: '#58a6ff', icon: Code2, description: 'Local development environment with debug mode enabled' },
+  staging: { label: 'Staging', color: '#e3b341', icon: TestTube, description: 'Pre-production testing environment with production-like config' },
+  production: { label: 'Production', color: '#3fb950', icon: Globe, description: 'Live production environment with optimized build' },
+};
+
+/* ─── Rollback Snapshot Data ─── */
+interface RollbackSnapshot {
+  id: string;
+  commitSha: string;
+  timestamp: string;
+  message: string;
+  author: string;
+  status: 'success' | 'failed' | 'rolled_back';
+  environment: Environment;
+  duration: string;
+}
+
+const ROLLBACK_SNAPSHOTS: RollbackSnapshot[] = [
+  { id: 'snap1', commitSha: 'a3f7b2c', timestamp: '2025-03-04T10:30:00Z', message: 'Fix payment gateway integration', author: 'dev', status: 'success', environment: 'production', duration: '2m 15s' },
+  { id: 'snap2', commitSha: 'e8d1a4f', timestamp: '2025-03-04T08:15:00Z', message: 'Update user authentication flow', author: 'dev', status: 'success', environment: 'production', duration: '1m 48s' },
+  { id: 'snap3', commitSha: '5b9c2e1', timestamp: '2025-03-03T22:45:00Z', message: 'Add email notification service', author: 'dev', status: 'success', environment: 'staging', duration: '2m 05s' },
+  { id: 'snap4', commitSha: '1f7d3a8', timestamp: '2025-03-03T16:20:00Z', message: 'Dashboard analytics improvements', author: 'dev', status: 'rolled_back', environment: 'staging', duration: '3m 30s' },
+  { id: 'snap5', commitSha: '9c4e6b2', timestamp: '2025-03-03T12:00:00Z', message: 'Initial deployment setup', author: 'dev', status: 'success', environment: 'development', duration: '1m 22s' },
+];
+
+/* ─── Diff Data ─── */
+interface DiffFile {
+  path: string;
+  type: 'added' | 'modified' | 'deleted';
+  additions: number;
+  deletions: number;
+  preview: string[];
+}
+
+const DEPLOYMENT_DIFF: DiffFile[] = [
+  { path: 'src/app/api/billing/route.ts', type: 'added', additions: 45, deletions: 0, preview: ['+ import { stripe } from "@/lib/stripe";', '+ export async function POST(req: Request) {', '+   const session = await stripe.checkout.sessions.create({', '+     mode: "subscription",', '+   });'] },
+  { path: 'src/app/page.tsx', type: 'modified', additions: 12, deletions: 8, preview: ['- export default function Home() {', '+ export default function Home({ params }: { params: { id: string } }) {', '+   const [data, setData] = useState(null);', '-   return <div>Loading</div>', '+   return <Dashboard data={data} />'] },
+  { path: 'prisma/schema.prisma', type: 'modified', additions: 15, deletions: 3, preview: ['- model User {', '-   id String @id', '- }', '+ model User {', '+   id        String   @id @default(cuid())', '+   email     String   @unique', '+   plan      Plan     @default(FREE)', '+ }', '+', '+ enum Plan {', '+   FREE', '+   PRO', '+ }'] },
+  { path: 'src/lib/auth.ts', type: 'added', additions: 32, deletions: 0, preview: ['+ import NextAuth from "next-auth";', '+ import GitHub from "next-auth/providers/github";', '+', '+ export const { handlers, auth } = NextAuth({', '+   providers: [GitHub],'] },
+  { path: 'src/old/deprecated-api.ts', type: 'deleted', additions: 0, deletions: 28, preview: ['- // DEPRECATED: Use /api/v2/', '- export async function oldHandler() {', '-   // Legacy implementation', '-   return { status: "ok" };', '- }'] },
+  { path: 'package.json', type: 'modified', additions: 4, deletions: 1, preview: ['-     "next": "14.0.0"', '+     "next": "14.1.0",', '+     "stripe": "^14.0.0",', '+     "@prisma/client": "^5.0.0"'] },
+];
+
+/* ─── Webhook Data ─── */
+interface WebhookConfig {
+  id: string;
+  type: 'slack' | 'discord' | 'email';
+  url: string;
+  label: string;
+  events: { deploy_start: boolean; deploy_success: boolean; deploy_fail: boolean; rollback: boolean };
+  enabled: boolean;
+  lastTested?: string;
+  testStatus?: 'success' | 'failed' | 'pending';
+}
+
+/* ─── Environment Variable Sets ─── */
+const ENV_VAR_SETS: Record<Environment, Array<{ key: string; value: string; isSecret: boolean }>> = {
+  development: [
+    { key: 'NODE_ENV', value: 'development', isSecret: false },
+    { key: 'DATABASE_URL', value: 'postgresql://localhost:5432/dev', isSecret: false },
+    { key: 'DEBUG', value: 'true', isSecret: false },
+    { key: 'API_BASE_URL', value: 'http://localhost:3001', isSecret: false },
+  ],
+  staging: [
+    { key: 'NODE_ENV', value: 'staging', isSecret: false },
+    { key: 'DATABASE_URL', value: 'postgresql://staging.internal:5432/app', isSecret: true },
+    { key: 'STRIPE_KEY', value: 'sk_test_••••••••', isSecret: true },
+    { key: 'API_BASE_URL', value: 'https://staging-api.example.com', isSecret: false },
+  ],
+  production: [
+    { key: 'NODE_ENV', value: 'production', isSecret: false },
+    { key: 'DATABASE_URL', value: 'postgresql://prod.internal:5432/app', isSecret: true },
+    { key: 'STRIPE_KEY', value: 'sk_live_••••••••', isSecret: true },
+    { key: 'NEXTAUTH_SECRET', value: '••••••••••••••', isSecret: true },
+    { key: 'API_BASE_URL', value: 'https://api.example.com', isSecret: false },
+  ],
+};
+
+// Confetti particles component
 function ConfettiParticles() {
   const particles = useMemo(() => Array.from({ length: 40 }, (_, i) => ({
     id: i,
@@ -98,7 +197,7 @@ function ConfettiParticles() {
   );
 }
 
-// Progress ring SVG component for deploy button
+// Progress ring SVG component
 function ProgressRing({ progress, size = 56, strokeWidth = 3 }: { progress: number; size?: number; strokeWidth?: number }) {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
@@ -167,6 +266,18 @@ export function DeployView() {
   const [autoScroll, setAutoScroll] = useState(true);
   const [deploymentCancelled, setDeploymentCancelled] = useState(false);
   const [deploymentPaused, setDeploymentPaused] = useState(false);
+
+  // ─── New Feature State ───
+  const [activeEnvironment, setActiveEnvironment] = useState<Environment>('development');
+  const [showRollbackConfirm, setShowRollbackConfirm] = useState<string | null>(null);
+  const [showDiffViewer, setShowDiffViewer] = useState(false);
+  const [webhooks, setWebhooks] = useState<WebhookConfig[]>([
+    { id: 'wh1', type: 'slack', url: 'https://hooks.slack.com/services/T00/B00/xxx', label: 'Deploy Notifications', events: { deploy_start: true, deploy_success: true, deploy_fail: true, rollback: false }, enabled: true, lastTested: '2025-03-04T10:00:00Z', testStatus: 'success' },
+    { id: 'wh2', type: 'discord', url: '', label: 'Discord Channel', events: { deploy_start: false, deploy_success: true, deploy_fail: true, rollback: true }, enabled: false },
+    { id: 'wh3', type: 'email', url: 'dev-team@example.com', label: 'Dev Team Email', events: { deploy_start: false, deploy_success: false, deploy_fail: true, rollback: true }, enabled: true, lastTested: '2025-03-03T15:30:00Z', testStatus: 'success' },
+  ]);
+  const [showWebhookConfig, setShowWebhookConfig] = useState(false);
+
   const logEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -398,14 +509,12 @@ export function DeployView() {
     return Math.round(readinessItems.reduce((sum, item) => sum + item.progress, 0) / readinessItems.length);
   }, [readinessItems]);
 
-  // Filter logs for errors tab
   const errorLogs = useMemo(() => logs.filter(l => l.type === 'error' || l.type === 'warning'), [logs]);
   const filteredLogs = useMemo(() => {
     if (!logSearch) return logs;
     return logs.filter(l => l.message.toLowerCase().includes(logSearch.toLowerCase()));
   }, [logs, logSearch]);
 
-  // Get log color by type
   const getLogColor = (type: string) => {
     switch (type) {
       case 'info': return '#58a6ff';
@@ -416,13 +525,47 @@ export function DeployView() {
     }
   };
 
-  // Get log prefix icon
   const getLogPrefix = (type: string) => {
     switch (type) {
       case 'error': return '✗';
       case 'success': return '✓';
       case 'warning': return '⚠';
       default: return 'ℹ';
+    }
+  };
+
+  // Diff stats
+  const diffStats = useMemo(() => {
+    const added = DEPLOYMENT_DIFF.filter(f => f.type === 'added').length;
+    const modified = DEPLOYMENT_DIFF.filter(f => f.type === 'modified').length;
+    const deleted = DEPLOYMENT_DIFF.filter(f => f.type === 'deleted').length;
+    const totalAdditions = DEPLOYMENT_DIFF.reduce((sum, f) => sum + f.additions, 0);
+    const totalDeletions = DEPLOYMENT_DIFF.reduce((sum, f) => sum + f.deletions, 0);
+    return { added, modified, deleted, totalAdditions, totalDeletions, total: DEPLOYMENT_DIFF.length };
+  }, []);
+
+  // Webhook handler
+  const handleTestWebhook = (webhookId: string) => {
+    setWebhooks(prev => prev.map(wh => wh.id === webhookId ? { ...wh, testStatus: 'pending' as const, lastTested: new Date().toISOString() } : wh));
+    setTimeout(() => {
+      setWebhooks(prev => prev.map(wh => wh.id === webhookId ? { ...wh, testStatus: (Math.random() > 0.2 ? 'success' : 'failed') as 'success' | 'failed' } : wh));
+      toast({ title: 'Webhook test sent', description: 'Check your integration for the test payload' });
+    }, 1500);
+  };
+
+  const getWebhookIcon = (type: WebhookConfig['type']) => {
+    switch (type) {
+      case 'slack': return <MessageSquare className="w-4 h-4" />;
+      case 'discord': return <MessageSquare className="w-4 h-4" />;
+      case 'email': return <Mail className="w-4 h-4" />;
+    }
+  };
+
+  const getWebhookColor = (type: WebhookConfig['type']) => {
+    switch (type) {
+      case 'slack': return '#e3b341';
+      case 'discord': return '#58a6ff';
+      case 'email': return '#3fb950';
     }
   };
 
@@ -435,7 +578,6 @@ export function DeployView() {
           <p className="text-sm mt-1" style={{ color: '#8b949e' }}>Ship your project to production with one click</p>
         </motion.div>
 
-        {/* Animated "How Deploy Works" Visual Guide */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }}>
           <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
             <CardHeader className="pb-3">
@@ -472,7 +614,6 @@ export function DeployView() {
                         >
                           {step.num}
                         </span>
-                        {/* Animated ring */}
                         <div className="absolute inset-0 rounded-full animate-pulse-ring" style={{ border: `2px solid ${step.color}40` }} />
                       </div>
                       <p className="text-xs font-semibold mb-1" style={{ color: '#c9d1d9' }}>{step.title}</p>
@@ -497,7 +638,6 @@ export function DeployView() {
           </Card>
         </motion.div>
 
-        {/* Deployment Checklist */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.4 }}>
           <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
             <CardHeader className="pb-2">
@@ -548,6 +688,8 @@ export function DeployView() {
   // ===================== DEPLOY VIEW =====================
   const completedSteps = steps.filter(s => s.status === 'complete').length;
   const totalSteps = steps.length;
+  const envConfig = ENVIRONMENT_CONFIG[activeEnvironment];
+  const EnvIcon = envConfig.icon;
 
   return (
     <div className="space-y-6">
@@ -575,6 +717,67 @@ export function DeployView() {
             <GitBranch className="w-3 h-3" /> Edit Workflow
           </Button>
         </div>
+      </motion.div>
+
+      {/* ─── Multi-Environment Selector ─── */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05, duration: 0.4 }}>
+        <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 p-0.5 rounded-lg" style={{ backgroundColor: '#0d1117' }}>
+                  {(Object.keys(ENVIRONMENT_CONFIG) as Environment[]).map((env) => {
+                    const config = ENVIRONMENT_CONFIG[env];
+                    const Icon = config.icon;
+                    const isActive = activeEnvironment === env;
+                    return (
+                      <button
+                        key={env}
+                        className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-md transition-all duration-200"
+                        style={{
+                          backgroundColor: isActive ? `${config.color}15` : 'transparent',
+                          color: isActive ? config.color : '#8b949e',
+                          boxShadow: isActive ? `0 0 8px ${config.color}20` : 'none',
+                        }}
+                        onClick={() => setActiveEnvironment(env)}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        {config.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="hidden sm:block">
+                  <p className="text-[10px]" style={{ color: '#8b949e' }}>{envConfig.description}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: `${envConfig.color}10`, color: envConfig.color, border: `1px solid ${envConfig.color}20` }}>
+                  {ENV_VAR_SETS[activeEnvironment].length} env vars
+                </span>
+                <span className="text-[10px] flex items-center gap-1" style={{ color: '#484f58' }}>
+                  <EnvIcon className="w-3 h-3" style={{ color: envConfig.color }} />
+                  {envConfig.label}
+                </span>
+              </div>
+            </div>
+            {/* Env vars preview */}
+            <div className="mt-3 pt-3 border-t" style={{ borderColor: '#21262d' }}>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                {ENV_VAR_SETS[activeEnvironment].map((envVar) => (
+                  <div key={envVar.key} className="flex items-center gap-1.5 px-2 py-1.5 rounded-md" style={{ backgroundColor: '#0d1117', border: '1px solid #21262d' }}>
+                    <span className="text-[9px] font-mono font-medium" style={{ color: '#58a6ff' }}>{envVar.key}</span>
+                    {envVar.isSecret ? (
+                      <span className="text-[8px] font-mono" style={{ color: '#484f58' }}>••••</span>
+                    ) : (
+                      <span className="text-[8px] font-mono truncate" style={{ color: '#8b949e' }}>{envVar.value}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* Workflow Editor (toggleable) */}
@@ -608,6 +811,115 @@ export function DeployView() {
                 </TabsList>
               </Tabs>
             </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ─── Deployment Diff Viewer ─── */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.4 }}>
+        <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2" style={{ color: '#c9d1d9' }}>
+                <Code2 className="w-4 h-4" style={{ color: '#58a6ff' }} />
+                Deployment Diff
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3 text-[10px]">
+                  <span className="flex items-center gap-1" style={{ color: '#3fb950' }}>
+                    <FilePlus className="w-3 h-3" /> +{diffStats.added} added
+                  </span>
+                  <span className="flex items-center gap-1" style={{ color: '#e3b341' }}>
+                    <FileEdit className="w-3 h-3" /> ~{diffStats.modified} modified
+                  </span>
+                  <span className="flex items-center gap-1" style={{ color: '#f85149' }}>
+                    <FileMinus className="w-3 h-3" /> -{diffStats.deleted} deleted
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 text-[10px]"
+                  style={{ color: '#58a6ff' }}
+                  onClick={() => setShowDiffViewer(!showDiffViewer)}
+                >
+                  {showDiffViewer ? <ChevronUp /> : <ChevronDown className="w-3 h-3" />}
+                  {showDiffViewer ? 'Hide' : 'Show Details'}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Summary bar */}
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#21262d' }}>
+                <div className="h-full flex">
+                  <div style={{ width: `${(diffStats.totalAdditions / (diffStats.totalAdditions + diffStats.totalDeletions)) * 100}%`, backgroundColor: '#3fb950' }} />
+                  <div style={{ width: `${(diffStats.totalDeletions / (diffStats.totalAdditions + diffStats.totalDeletions)) * 100}%`, backgroundColor: '#f85149' }} />
+                </div>
+              </div>
+              <span className="text-[10px] font-mono shrink-0" style={{ color: '#8b949e' }}>
+                <span style={{ color: '#3fb950' }}>+{diffStats.totalAdditions}</span>
+                {' / '}
+                <span style={{ color: '#f85149' }}>-{diffStats.totalDeletions}</span>
+              </span>
+            </div>
+
+            <AnimatePresence>
+              {showDiffViewer && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
+                >
+                  <div className="space-y-2">
+                    {DEPLOYMENT_DIFF.map((file, i) => (
+                      <motion.div
+                        key={file.path}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.05, duration: 0.2 }}
+                        className="rounded-lg overflow-hidden"
+                        style={{
+                          border: '1px solid #21262d',
+                          borderLeft: `3px solid ${file.type === 'added' ? '#3fb950' : file.type === 'modified' ? '#e3b341' : '#f85149'}`,
+                        }}
+                      >
+                        {/* File header */}
+                        <div
+                          className="flex items-center justify-between px-3 py-2"
+                          style={{ backgroundColor: '#0d1117', borderBottom: '1px solid #21262d' }}
+                        >
+                          <div className="flex items-center gap-2">
+                            {file.type === 'added' ? <FilePlus className="w-3.5 h-3.5" style={{ color: '#3fb950' }} /> :
+                             file.type === 'modified' ? <FileEdit className="w-3.5 h-3.5" style={{ color: '#e3b341' }} /> :
+                             <FileMinus className="w-3.5 h-3.5" style={{ color: '#f85149' }} />}
+                            <span className="text-[11px] font-mono" style={{ color: '#c9d1d9' }}>{file.path}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] font-mono">
+                            {file.additions > 0 && <span style={{ color: '#3fb950' }}>+{file.additions}</span>}
+                            {file.deletions > 0 && <span style={{ color: '#f85149' }}>-{file.deletions}</span>}
+                          </div>
+                        </div>
+                        {/* Diff preview lines */}
+                        <div className="px-3 py-2 font-mono text-[10px] leading-relaxed max-h-24 overflow-y-auto custom-scroll" style={{ backgroundColor: '#0d1117' }}>
+                          {file.preview.map((line, li) => (
+                            <div key={li} className="flex">
+                              <span className="w-4 shrink-0 select-none text-right pr-2" style={{ color: '#484f58' }}>{li + 1}</span>
+                              <span style={{ color: line.startsWith('+') ? '#3fb950' : line.startsWith('-') ? '#f85149' : '#8b949e', backgroundColor: line.startsWith('+') ? 'rgba(63,185,80,0.08)' : line.startsWith('-') ? 'rgba(248,81,73,0.08)' : 'transparent' }}>
+                                {line}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </CardContent>
         </Card>
       </motion.div>
@@ -680,11 +992,9 @@ export function DeployView() {
                     return (
                       <div key={step.id}>
                         <div className="flex items-start gap-3 relative cursor-pointer group" onClick={() => setExpandedStep(isExpanded ? null : step.id)}>
-                          {/* Connecting line */}
                           {index < steps.length - 1 && (
                             <div className="absolute left-[19px] top-[42px] w-0.5" style={{ height: 'calc(100% - 30px)', backgroundColor: step.status === 'complete' ? '#3fb950' : '#21262d', transition: 'background-color 0.5s ease' }} />
                           )}
-                          {/* Step circle */}
                           <div className="flex items-center justify-center shrink-0 z-10">
                             <div className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300" style={{
                               backgroundColor: step.status === 'complete' ? 'rgba(63,185,80,0.15)' : step.status === 'in_progress' ? 'rgba(88,166,255,0.15)' : step.status === 'error' ? 'rgba(248,81,73,0.15)' : 'rgba(48,54,61,0.5)',
@@ -696,7 +1006,6 @@ export function DeployView() {
                                <span className="text-sm font-mono font-bold" style={{ color: '#484f58' }}>{index + 1}</span>}
                             </div>
                           </div>
-                          {/* Step content */}
                           <div className="flex-1 pb-4">
                             <div className="flex items-center justify-between">
                               <div>
@@ -717,12 +1026,10 @@ export function DeployView() {
                             </div>
                           </div>
                         </div>
-                        {/* Expandable: substeps + view logs */}
                         <AnimatePresence>
                           {isExpanded && (
                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden ml-[52px] mb-3">
                               <div className="space-y-2 p-2.5 rounded-lg" style={{ backgroundColor: '#0d1117' }}>
-                                {/* Substeps */}
                                 {step.substeps && step.substeps.map((sub, si) => (
                                   <div key={si} className="flex items-center gap-2">
                                     <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: step.status === 'complete' ? 'rgba(63,185,80,0.15)' : step.status === 'in_progress' ? 'rgba(88,166,255,0.15)' : 'rgba(48,54,61,0.5)' }}>
@@ -733,7 +1040,6 @@ export function DeployView() {
                                     <span className="text-[10px]" style={{ color: '#8b949e' }}>{sub}</span>
                                   </div>
                                 ))}
-                                {/* View Logs section */}
                                 <div className="pt-2 mt-1 border-t" style={{ borderColor: '#21262d' }}>
                                   <p className="text-[9px] uppercase font-bold mb-1" style={{ color: '#484f58' }}>Step Logs</p>
                                   <div className="font-mono text-[10px] space-y-0.5 max-h-20 overflow-y-auto custom-scroll">
@@ -763,7 +1069,6 @@ export function DeployView() {
           {/* Enhanced Terminal Console with 3 Tabs */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.4 }}>
             <div className="rounded-lg overflow-hidden border" style={{ borderColor: '#30363d', backgroundColor: '#0d1117' }}>
-              {/* Terminal header */}
               <div className="border-b" style={{ borderColor: '#30363d', backgroundColor: '#161b22' }}>
                 <div className="flex items-center justify-between px-4 py-2">
                   <div className="flex items-center gap-3">
@@ -795,7 +1100,6 @@ export function DeployView() {
                         <span className="animate-blink-cursor">▌</span> Streaming
                       </span>
                     )}
-                    {/* Auto-scroll toggle */}
                     <button
                       className="text-[9px] flex items-center gap-1 px-1.5 py-0.5 rounded"
                       style={{ backgroundColor: autoScroll ? 'rgba(63,185,80,0.1)' : 'transparent', color: autoScroll ? '#3fb950' : '#484f58' }}
@@ -806,7 +1110,6 @@ export function DeployView() {
                     </button>
                   </div>
                 </div>
-                {/* Search bar */}
                 {terminalTab === 'live' && (
                   <div className="px-4 pb-2">
                     <div className="flex items-center gap-2">
@@ -828,7 +1131,6 @@ export function DeployView() {
                 )}
               </div>
 
-              {/* Terminal content */}
               <ScrollArea className="p-4" style={{ maxHeight: '300px' }}>
                 {terminalTab === 'live' ? (
                   <div className="font-mono text-xs space-y-0.5">
@@ -885,7 +1187,6 @@ export function DeployView() {
                     )}
                   </div>
                 ) : (
-                  /* Errors tab */
                   <div className="space-y-1">
                     {errorLogs.length === 0 ? (
                       <div className="text-center py-6">
@@ -963,7 +1264,6 @@ export function DeployView() {
                       </div>
                     </div>
 
-                    {/* Deployment Summary Stats */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                       {[
                         { label: 'Duration', value: formatElapsed(elapsedTime), icon: Timer, color: '#58a6ff' },
@@ -981,7 +1281,6 @@ export function DeployView() {
                       ))}
                     </div>
 
-                    {/* Repo URL + Copy */}
                     <div className="flex items-center gap-2 p-3 rounded-lg mb-4" style={{ backgroundColor: '#161b22' }}>
                       <Github className="w-4 h-4 shrink-0" style={{ color: '#8b949e' }} />
                       <a href={deployResult.repoUrl as string} target="_blank" rel="noopener noreferrer" className="text-xs font-mono flex-1 truncate hover:underline" style={{ color: '#58a6ff' }}>
@@ -993,7 +1292,6 @@ export function DeployView() {
                       </Button>
                     </div>
 
-                    {/* Action buttons */}
                     <div className="flex flex-wrap gap-2">
                       <Button className="gap-2" style={{ background: 'linear-gradient(135deg, #58a6ff, #388bfd)', color: 'white' }} onClick={() => setCurrentView('hosting')}>
                         Set Up Hosting <ArrowRight className="w-4 h-4" />
@@ -1044,7 +1342,260 @@ export function DeployView() {
 
           <EnvManager />
 
-          {/* Enhanced Readiness Checklist with scoring */}
+          {/* ─── Rollback Manager ─── */}
+          <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2" style={{ color: '#8b949e' }}>
+                  <RotateCcw className="w-4 h-4" style={{ color: '#e3b341' }} />
+                  Rollback Manager
+                </CardTitle>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(227,179,65,0.1)', color: '#e3b341' }}>
+                  {ROLLBACK_SNAPSHOTS.length} snapshots
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-72 overflow-y-auto custom-scroll">
+                {ROLLBACK_SNAPSHOTS.map((snapshot, i) => (
+                  <motion.div
+                    key={snapshot.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05, duration: 0.2 }}
+                    className="rounded-lg p-3 transition-colors hover:bg-[#21262d]"
+                    style={{
+                      backgroundColor: '#0d1117',
+                      border: '1px solid #21262d',
+                      borderLeft: `3px solid ${snapshot.status === 'rolled_back' ? '#f85149' : '#3fb950'}`,
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <code className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: '#21262d', color: '#58a6ff' }}>
+                          {snapshot.commitSha}
+                        </code>
+                        {snapshot.status === 'rolled_back' && (
+                          <span className="text-[8px] uppercase font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(248,81,73,0.1)', color: '#f85149', border: '1px solid rgba(248,81,73,0.2)' }}>
+                            Rolled Back
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[9px]" style={{ color: '#484f58' }}>
+                        {snapshot.duration}
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-medium mb-1" style={{ color: '#c9d1d9' }}>{snapshot.message}</p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px]" style={{ color: '#484f58' }}>
+                          {new Date(snapshot.timestamp).toLocaleDateString()} {new Date(snapshot.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <span className="text-[8px] px-1 py-0.5 rounded-full" style={{
+                          backgroundColor: `${ENVIRONMENT_CONFIG[snapshot.environment].color}10`,
+                          color: ENVIRONMENT_CONFIG[snapshot.environment].color,
+                        }}>
+                          {ENVIRONMENT_CONFIG[snapshot.environment].label}
+                        </span>
+                      </div>
+                      {showRollbackConfirm === snapshot.id ? (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            className="h-5 text-[9px] px-2 gap-0.5"
+                            style={{ backgroundColor: '#f85149', color: 'white' }}
+                            onClick={() => {
+                              toast({ title: 'Rollback initiated', description: `Rolling back to ${snapshot.commitSha}...` });
+                              setShowRollbackConfirm(null);
+                            }}
+                          >
+                            Confirm
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 text-[9px] px-2"
+                            style={{ color: '#8b949e' }}
+                            onClick={() => setShowRollbackConfirm(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 text-[9px] gap-1 px-2 shrink-0"
+                          style={{ color: '#e3b341' }}
+                          onClick={() => setShowRollbackConfirm(snapshot.id)}
+                        >
+                          <RotateCcw className="w-2.5 h-2.5" /> Rollback
+                        </Button>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ─── Webhook Configuration ─── */}
+          <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2" style={{ color: '#8b949e' }}>
+                  <Bell className="w-4 h-4" style={{ color: '#a371f7' }} />
+                  Webhooks
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 text-[9px] gap-1"
+                  style={{ color: '#58a6ff' }}
+                  onClick={() => setShowWebhookConfig(!showWebhookConfig)}
+                >
+                  {showWebhookConfig ? 'Hide' : 'Configure'}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Webhook status indicators */}
+              <div className="space-y-2">
+                {webhooks.map((wh) => (
+                  <div
+                    key={wh.id}
+                    className="flex items-center gap-2 px-2.5 py-2 rounded-lg transition-colors hover:bg-[#21262d]"
+                    style={{ backgroundColor: '#0d1117', border: '1px solid #21262d' }}
+                  >
+                    <div
+                      className="p-1 rounded-md shrink-0"
+                      style={{ backgroundColor: `${getWebhookColor(wh.type)}15` }}
+                    >
+                      {getWebhookIcon(wh.type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-medium" style={{ color: '#c9d1d9' }}>{wh.label}</span>
+                        {wh.enabled ? (
+                          <CheckCircle className="w-3 h-3" style={{ color: '#3fb950' }} />
+                        ) : (
+                          <XCircle className="w-3 h-3" style={{ color: '#484f58' }} />
+                        )}
+                        {wh.testStatus === 'success' && (
+                          <span className="text-[8px] px-1 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(63,185,80,0.1)', color: '#3fb950' }}>Verified</span>
+                        )}
+                        {wh.testStatus === 'failed' && (
+                          <span className="text-[8px] px-1 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(248,81,73,0.1)', color: '#f85149' }}>Failed</span>
+                        )}
+                        {wh.testStatus === 'pending' && (
+                          <Loader2 className="w-3 h-3 animate-spin" style={{ color: '#58a6ff' }} />
+                        )}
+                      </div>
+                      <p className="text-[9px] truncate" style={{ color: '#484f58' }}>
+                        {wh.url || 'Not configured'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Expanded webhook configuration */}
+              <AnimatePresence>
+                {showWebhookConfig && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-3 pt-3 border-t space-y-3" style={{ borderColor: '#21262d' }}>
+                      {webhooks.map((wh) => (
+                        <div key={wh.id} className="p-3 rounded-lg" style={{ backgroundColor: '#0d1117', border: '1px solid #21262d', borderLeft: `3px solid ${getWebhookColor(wh.type)}` }}>
+                          {/* Header */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              {getWebhookIcon(wh.type)}
+                              <span className="text-[11px] font-semibold capitalize" style={{ color: '#c9d1d9' }}>{wh.type}</span>
+                            </div>
+                            <button
+                              className="flex items-center gap-1 text-[10px]"
+                              style={{ color: wh.enabled ? '#3fb950' : '#484f58' }}
+                              onClick={() => setWebhooks(prev => prev.map(w => w.id === wh.id ? { ...w, enabled: !w.enabled } : w))}
+                            >
+                              <div className="w-7 h-4 rounded-full relative transition-colors" style={{ backgroundColor: wh.enabled ? '#3fb950' : '#30363d' }}>
+                                <div className="absolute top-0.5 w-3 h-3 rounded-full transition-transform" style={{ backgroundColor: 'white', transform: wh.enabled ? 'translateX(14px)' : 'translateX(2px)' }} />
+                              </div>
+                              {wh.enabled ? 'On' : 'Off'}
+                            </button>
+                          </div>
+                          {/* URL input */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <Input
+                              placeholder={wh.type === 'email' ? 'email@example.com' : 'https://...'}
+                              value={wh.url}
+                              onChange={(e) => setWebhooks(prev => prev.map(w => w.id === wh.id ? { ...w, url: e.target.value } : w))}
+                              className="h-7 text-[10px]"
+                              style={{ backgroundColor: '#161b22', borderColor: '#21262d', color: '#c9d1d9' }}
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-[9px] gap-1 shrink-0"
+                              style={{ borderColor: '#30363d', color: '#58a6ff' }}
+                              onClick={() => handleTestWebhook(wh.id)}
+                              disabled={!wh.url || wh.testStatus === 'pending'}
+                            >
+                              {wh.testStatus === 'pending' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                              Test
+                            </Button>
+                          </div>
+                          {/* Event checkboxes */}
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {Object.entries(wh.events).map(([event, checked]) => (
+                              <label key={event} className="flex items-center gap-1.5 cursor-pointer">
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(val) => setWebhooks(prev => prev.map(w => w.id === wh.id ? { ...w, events: { ...w.events, [event]: !!val } } : w))}
+                                  className="h-3 w-3"
+                                  style={{ borderColor: '#30363d' }}
+                                />
+                                <span className="text-[9px] capitalize" style={{ color: '#8b949e' }}>
+                                  {event.replace('_', ' ')}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Add new webhook */}
+                      <Button
+                        variant="outline"
+                        className="w-full gap-1.5 h-7 text-[10px]"
+                        style={{ borderColor: '#30363d', color: '#8b949e' }}
+                        onClick={() => {
+                          setWebhooks(prev => [...prev, {
+                            id: `wh${Date.now()}`,
+                            type: 'slack',
+                            url: '',
+                            label: 'New Webhook',
+                            events: { deploy_start: false, deploy_success: true, deploy_fail: true, rollback: false },
+                            enabled: false,
+                          }]);
+                          toast({ title: 'Webhook added', description: 'Configure the new webhook below' });
+                        }}
+                      >
+                        <Plus className="w-3 h-3" /> Add Webhook
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </CardContent>
+          </Card>
+
+          {/* Enhanced Readiness Checklist */}
           <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -1072,7 +1623,6 @@ export function DeployView() {
                       </Button>
                     )}
                   </div>
-                  {/* Visual progress for partial items */}
                   {!item.ok && item.progress > 0 && (
                     <div className="ml-7">
                       <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: '#21262d' }}>
@@ -1088,7 +1638,6 @@ export function DeployView() {
                   )}
                 </div>
               ))}
-              {/* Readiness score text */}
               <div className="pt-2 mt-2 border-t" style={{ borderColor: '#21262d' }}>
                 <p className="text-[10px] text-center" style={{ color: readinessScore >= 80 ? '#3fb950' : readinessScore >= 50 ? '#e3b341' : '#f85149' }}>
                   {readinessScore >= 80 ? '✓ Ready to deploy!' : readinessScore >= 50 ? '⚠ Almost ready — fix remaining items' : '✗ Not ready — resolve issues above'}
@@ -1173,5 +1722,14 @@ export function DeployView() {
 
       <WorkflowTemplate />
     </div>
+  );
+}
+
+// Helper for ChevronUp icon (used in diff viewer)
+function ChevronUp() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m18 15-6-6-6 6" />
+    </svg>
   );
 }
