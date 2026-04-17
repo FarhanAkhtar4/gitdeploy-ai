@@ -70,6 +70,8 @@ import {
   Volume2,
   Lock,
   RefreshCw,
+  Bookmark,
+  BookOpen as BookOpenIcon,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -697,6 +699,68 @@ export function ChatView() {
   const [previewOutput, setPreviewOutput] = useState<{ console: string; exitCode: number } | null>(null);
   const [previewRunning, setPreviewRunning] = useState(false);
   const [previewTab, setPreviewTab] = useState<'console' | 'preview'>('console');
+
+  // Bookmark state
+  const [bookmarkedMessages, setBookmarkedMessages] = useState<Set<string>>(new Set());
+
+  // Slash command menu state
+  const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [slashFilter, setSlashFilter] = useState('');
+  const slashMenuRef = useRef<HTMLDivElement>(null);
+
+  // Slash commands data
+  const SLASH_COMMANDS = useMemo(() => [
+    { cmd: '/explain', icon: BookOpen, desc: 'Explain the selected code', color: '#58a6ff', prompt: '/explain ' },
+    { cmd: '/debug', icon: Bug, desc: 'Debug an error or issue', color: '#f85149', prompt: '/debug ' },
+    { cmd: '/test', icon: TestTube, desc: 'Generate tests for code', color: '#3fb950', prompt: '/test ' },
+    { cmd: '/refactor', icon: RefreshCw, desc: 'Refactor and improve code', color: '#e3b341', prompt: '/refactor ' },
+    { cmd: '/document', icon: FileText, desc: 'Generate documentation', color: '#a371f7', prompt: '/document ' },
+    { cmd: '/deploy', icon: Rocket, desc: 'Deploy or deployment help', color: '#3fb950', prompt: '/deploy ' },
+    { cmd: '/review', icon: Code, desc: 'Review code for issues', color: '#79c0ff', prompt: '/review ' },
+  ], []);
+
+  // Quick action button definitions
+  const QUICK_ACTION_BTNS = useMemo(() => [
+    { icon: BookOpen, label: 'Explain Code', color: '#58a6ff', prompt: 'Explain this code step by step: ' },
+    { icon: Bug, label: 'Debug Error', color: '#f85149', prompt: 'Debug this error and suggest fixes: ' },
+    { icon: TestTube, label: 'Generate Test', color: '#3fb950', prompt: 'Generate comprehensive tests for: ' },
+    { icon: RefreshCw, label: 'Refactor', color: '#e3b341', prompt: 'Refactor this code for better readability and performance: ' },
+    { icon: FileText, label: 'Document', color: '#a371f7', prompt: 'Generate documentation for: ' },
+  ], []);
+
+  // Toggle bookmark for a message
+  const toggleBookmark = useCallback((msgId: string) => {
+    setBookmarkedMessages(prev => {
+      const next = new Set(prev);
+      if (next.has(msgId)) {
+        next.delete(msgId);
+        toast({ title: 'Bookmark removed', description: 'Message unbookmarked' });
+      } else {
+        next.add(msgId);
+        toast({ title: 'Bookmarked', description: 'Message saved to bookmarks' });
+      }
+      return next;
+    });
+  }, [toast]);
+
+  // Handle slash command selection
+  const selectSlashCommand = useCallback((cmd: typeof SLASH_COMMANDS[number]) => {
+    setInput(cmd.prompt);
+    setCharCount(cmd.prompt.length);
+    setShowSlashMenu(false);
+    setSlashFilter('');
+  }, []);
+
+  // Close slash menu on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (slashMenuRef.current && !slashMenuRef.current.contains(e.target as Node)) {
+        setShowSlashMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   // Session timer
   useEffect(() => {
@@ -1561,10 +1625,15 @@ export function ChatView() {
                             : undefined,
                           border: msg.role === 'user'
                             ? '1px solid #444c56'
-                            : '1px solid #21262d',
+                            : bookmarkedMessages.has(msg.id)
+                              ? '1px solid #e3b34130'
+                              : '1px solid #21262d',
                           // Gradient bg for user messages (dark blue tint)
                           ...(msg.role === 'user' ? {
                             background: 'linear-gradient(135deg, #1a2744, #1e2d4a, #1a2744)',
+                          } : bookmarkedMessages.has(msg.id) ? {
+                            background: 'linear-gradient(135deg, #161b22 0%, #0d1117 50%, #161b22 100%)',
+                            borderLeft: `3px solid #e3b341`,
                           } : {
                             // Gradient bg for assistant messages
                             background: 'linear-gradient(135deg, #161b22 0%, #0d1117 50%, #161b22 100%)',
@@ -1585,6 +1654,15 @@ export function ChatView() {
                       </span>
                       <CopyButton text={msg.content} />
                       <ShareButton text={msg.content} />
+                      {/* Bookmark button */}
+                      <button
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[#30363d]"
+                        style={{ color: bookmarkedMessages.has(msg.id) ? '#e3b341' : '#8b949e' }}
+                        title={bookmarkedMessages.has(msg.id) ? 'Remove bookmark' : 'Bookmark message'}
+                        onClick={() => toggleBookmark(msg.id)}
+                      >
+                        <Bookmark className="w-3 h-3" fill={bookmarkedMessages.has(msg.id) ? '#e3b341' : 'none'} />
+                      </button>
                       {msg.role === 'assistant' && (
                         <>
                           <MessageReactions messageId={msg.id} />
@@ -1888,6 +1966,44 @@ export function ChatView() {
                 </motion.div>
               )}
             </AnimatePresence>
+            {/* ─── Quick Action Buttons Row ─── */}
+            <div className="flex items-center gap-1.5 mb-2 overflow-x-auto custom-scroll pb-0.5">
+              {QUICK_ACTION_BTNS.map((action, i) => {
+                const Icon = action.icon;
+                return (
+                  <motion.button
+                    key={action.label}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.06, duration: 0.25 }}
+                    className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg shrink-0 transition-all duration-200 hover:scale-105"
+                    style={{
+                      backgroundColor: `${action.color}10`,
+                      color: action.color,
+                      border: `1px solid ${action.color}20`,
+                    }}
+                    onClick={() => {
+                      setInput(action.prompt);
+                      setCharCount(action.prompt.length);
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.backgroundColor = `${action.color}20`;
+                      (e.currentTarget as HTMLElement).style.borderColor = `${action.color}50`;
+                      (e.currentTarget as HTMLElement).style.boxShadow = `0 0 12px ${action.color}20`;
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.backgroundColor = `${action.color}10`;
+                      (e.currentTarget as HTMLElement).style.borderColor = `${action.color}20`;
+                      (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+                    }}
+                  >
+                    <Icon className="w-3 h-3" />
+                    {action.label}
+                  </motion.button>
+                );
+              })}
+            </div>
+
             {/* AI Mode Selector */}
             <div className="flex items-center gap-2 mb-2">
               <div className="relative" ref={aiModeRef}>
@@ -2002,18 +2118,76 @@ export function ChatView() {
                     </TooltipContent>
                   </Tooltip>
                 </div>
+                {/* Slash Command Menu */}
+                <AnimatePresence>
+                  {showSlashMenu && (
+                    <motion.div
+                      ref={slashMenuRef}
+                      initial={{ opacity: 0, y: 4, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 4, scale: 0.97 }}
+                      transition={{ duration: 0.12 }}
+                      className="absolute bottom-full mb-2 left-0 right-0 rounded-xl overflow-hidden z-50 max-h-64 overflow-y-auto custom-scroll"
+                      style={{
+                        backgroundColor: '#161b22',
+                        border: '1px solid #30363d',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(88,166,255,0.1)',
+                      }}
+                    >
+                      <div className="px-3 py-2 border-b" style={{ borderColor: '#30363d' }}>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#8b949e' }}>Commands</p>
+                      </div>
+                      {SLASH_COMMANDS.filter(c => c.cmd.includes(slashFilter)).map((cmd) => {
+                        const CmdIcon = cmd.icon;
+                        return (
+                          <motion.button
+                            key={cmd.cmd}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-[#21262d]"
+                            onClick={() => selectSlashCommand(cmd)}
+                          >
+                            <div className="p-1.5 rounded-md" style={{ backgroundColor: `${cmd.color}15` }}>
+                              <CmdIcon className="w-3.5 h-3.5" style={{ color: cmd.color }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-mono font-medium" style={{ color: cmd.color }}>{cmd.cmd}</p>
+                              <p className="text-[9px]" style={{ color: '#484f58' }}>{cmd.desc}</p>
+                            </div>
+                          </motion.button>
+                        );
+                      })}
+                      {SLASH_COMMANDS.filter(c => c.cmd.includes(slashFilter)).length === 0 && (
+                        <div className="px-3 py-4 text-center">
+                          <p className="text-[10px]" style={{ color: '#484f58' }}>No matching commands</p>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 <Textarea
                   value={input}
                   onChange={(e) => {
-                    setInput(e.target.value);
-                    setCharCount(e.target.value.length);
+                    const val = e.target.value;
+                    setInput(val);
+                    setCharCount(val.length);
+                    // Show slash menu when typing "/" at start
+                    if (val.startsWith('/')) {
+                      setShowSlashMenu(true);
+                      setSlashFilter(val.toLowerCase());
+                    } else {
+                      setShowSlashMenu(false);
+                      setSlashFilter('');
+                    }
                   }}
-                  placeholder="Ask about deployment, workflows, or hosting..."
+                  placeholder="Ask about deployment, workflows, or hosting... (type / for commands)"
                   className="min-h-[44px] max-h-32 bg-[#0d1117] border-[#30363d] text-[#c9d1d9] text-sm resize-none rounded-xl focus:border-[#58a6ff] pl-10 pr-14"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
                       sendMessage();
+                      setShowSlashMenu(false);
+                    }
+                    if (e.key === 'Escape') {
+                      setShowSlashMenu(false);
                     }
                   }}
                   rows={1}

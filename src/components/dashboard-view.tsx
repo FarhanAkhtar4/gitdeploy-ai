@@ -66,6 +66,7 @@ import {
   ArrowUp,
   ArrowDown,
   ChevronDown,
+  X,
   Wifi,
   CalendarDays,
   Users,
@@ -172,6 +173,46 @@ function MiniSparkline({ color, values }: { color: string; values: number[] }) {
 }
 
 /* ============================================================
+   SVG Path Sparkline Component — Smooth line chart
+   ============================================================ */
+function SvgSparkline({ color, values, width = 80, height = 28 }: { color: string; values: number[]; width?: number; height?: number }) {
+  if (values.length < 2) return null;
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const range = max - min || 1;
+  const step = width / (values.length - 1);
+  const points = values.map((v, i) => ({
+    x: i * step,
+    y: height - 2 - ((v - min) / range) * (height - 4),
+  }));
+  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  const areaD = pathD + ` L ${width} ${height} L 0 ${height} Z`;
+  const gradId = `sg-${color.replace('#', '')}`;
+  return (
+    <svg width={width} height={height} className="overflow-visible">
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+          <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+        </linearGradient>
+      </defs>
+      <path d={areaD} fill={`url(#${gradId})`} />
+      <motion.path
+        d={pathD}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        initial={{ pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: 1, ease: 'easeOut', delay: 0.5 }}
+      />
+    </svg>
+  );
+}
+
+/* ============================================================
    Animated Counter Component — With number counting effect
    ============================================================ */
 function AnimatedNumber({ value, color, trendUp }: { value: number; color: string; trendUp: boolean }) {
@@ -245,17 +286,24 @@ function AnimatedNumber({ value, color, trendUp }: { value: number; color: strin
    Sample Activity Data
    ============================================================ */
 const SAMPLE_ACTIVITIES = [
-  { id: '1', type: 'project_created' as const, message: 'Project "Invoice Manager" created', time: '2m ago', color: '#58a6ff', view: 'builder' as const },
-  { id: '2', type: 'deploy_started' as const, message: 'Deployment started for "Task Manager"', time: '15m ago', color: '#e3b341', view: 'deploy' as const },
-  { id: '3', type: 'deploy_completed' as const, message: 'Deployment completed for "Chat App"', time: '1h ago', color: '#3fb950', view: 'deploy' as const },
-  { id: '4', type: 'file_pushed' as const, message: '12 files pushed to "Analytics Dashboard"', time: '2h ago', color: '#58a6ff', view: 'builder' as const },
-  { id: '5', type: 'deploy_failed' as const, message: 'Deployment failed for "Blog CMS"', time: '3h ago', color: '#f85149', view: 'deploy' as const },
-  { id: '6', type: 'project_created' as const, message: 'Project "Food Delivery API" created', time: '5h ago', color: '#58a6ff', view: 'builder' as const },
-  { id: '7', type: 'deploy_completed' as const, message: 'Deployment completed for "Portfolio Site"', time: '6h ago', color: '#3fb950', view: 'deploy' as const },
-  { id: '8', type: 'file_pushed' as const, message: '5 files pushed to "E-commerce API"', time: '8h ago', color: '#58a6ff', view: 'builder' as const },
-  { id: '9', type: 'deploy_started' as const, message: 'Deployment started for "Docs Generator"', time: '10h ago', color: '#e3b341', view: 'deploy' as const },
-  { id: '10', type: 'deploy_completed' as const, message: 'Deployment completed for "CRM Tool"', time: '12h ago', color: '#3fb950', view: 'deploy' as const },
+  { id: '1', type: 'project_created' as const, category: 'Build' as const, message: 'Project "Invoice Manager" created', time: '2m ago', color: '#58a6ff', view: 'builder' as const },
+  { id: '2', type: 'deploy_started' as const, category: 'Deploy' as const, message: 'Deployment started for "Task Manager"', time: '15m ago', color: '#e3b341', view: 'deploy' as const },
+  { id: '3', type: 'deploy_completed' as const, category: 'Deploy' as const, message: 'Deployment completed for "Chat App"', time: '1h ago', color: '#3fb950', view: 'deploy' as const },
+  { id: '4', type: 'file_pushed' as const, category: 'Build' as const, message: '12 files pushed to "Analytics Dashboard"', time: '2h ago', color: '#58a6ff', view: 'builder' as const },
+  { id: '5', type: 'deploy_failed' as const, category: 'Error' as const, message: 'Deployment failed for "Blog CMS"', time: '3h ago', color: '#f85149', view: 'deploy' as const },
+  { id: '6', type: 'project_created' as const, category: 'Build' as const, message: 'Project "Food Delivery API" created', time: '5h ago', color: '#58a6ff', view: 'builder' as const },
+  { id: '7', type: 'deploy_completed' as const, category: 'Deploy' as const, message: 'Deployment completed for "Portfolio Site"', time: '6h ago', color: '#3fb950', view: 'deploy' as const },
+  { id: '8', type: 'file_pushed' as const, category: 'Settings' as const, message: '5 files pushed to "E-commerce API"', time: '8h ago', color: '#a371f7', view: 'builder' as const },
+  { id: '9', type: 'deploy_started' as const, category: 'Deploy' as const, message: 'Deployment started for "Docs Generator"', time: '10h ago', color: '#e3b341', view: 'deploy' as const },
+  { id: '10', type: 'deploy_completed' as const, category: 'Deploy' as const, message: 'Deployment completed for "CRM Tool"', time: '12h ago', color: '#3fb950', view: 'deploy' as const },
 ];
+
+const CATEGORY_PILLS: Record<string, { color: string; bg: string }> = {
+  'Deploy': { color: '#3fb950', bg: 'rgba(63,185,80,0.12)' },
+  'Build': { color: '#58a6ff', bg: 'rgba(88,166,255,0.12)' },
+  'Error': { color: '#f85149', bg: 'rgba(248,81,73,0.12)' },
+  'Settings': { color: '#a371f7', bg: 'rgba(163,113,247,0.12)' },
+};
 
 function ActivityIcon({ type, color }: { type: string; color: string }) {
   switch (type) {
@@ -562,6 +610,7 @@ export function DashboardView() {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [sortBy, setSortBy] = useState<'recent' | 'name' | 'status'>('recent');
   const [showAllActivities, setShowAllActivities] = useState(false);
+  const [showActivityModal, setShowActivityModal] = useState(false);
   const { toast } = useToast();
 
   /* ----- Fetch Projects ----- */
@@ -680,7 +729,7 @@ export function DashboardView() {
     { label: 'Total Projects', value: projects.length, icon: FolderOpen, color: '#58a6ff', sparkline: [2, 4, 3, 5, 4, projects.length], trend: '+12%', trendUp: true, tooltip: `${liveCount} live, ${buildingCount} building, ${failedCount} failed` },
     { label: 'Live', value: liveCount, icon: Zap, color: '#3fb950', sparkline: [0, 1, 1, 2, 1, liveCount], trend: '+8%', trendUp: true, tooltip: `${liveCount} of ${projects.length} projects deployed` },
     { label: 'Building', value: buildingCount, icon: Activity, color: '#e3b341', sparkline: [0, 0, 1, 0, 1, buildingCount], trend: '-3%', trendUp: false, tooltip: `${buildingCount} active build jobs` },
-    { label: 'Failed', value: failedCount, icon: Rocket, color: '#f85149', sparkline: [0, 0, 0, 1, 0, failedCount], trend: '-15%', trendUp: false, tooltip: `${failedCount} deployment${failedCount !== 1 ? 's' : ''} need attention` },
+    { label: 'Failed', value: failedCount, icon: AlertCircle, color: '#f85149', sparkline: [0, 0, 0, 1, 0, failedCount], trend: '-15%', trendUp: false, tooltip: `${failedCount} deployment${failedCount !== 1 ? 's' : ''} need attention` },
   ];
 
   /* ----- Filtered & Sorted Projects ----- */
@@ -939,8 +988,11 @@ export function DashboardView() {
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
                         <AnimatedNumber value={stat.value} color={stat.color} trendUp={stat.trendUp} />
-                        <p className="text-xs" style={{ color: '#8b949e' }}>{stat.label}</p>
-                        <MiniSparkline color={stat.color} values={stat.sparkline} />
+                        <div className="flex items-center gap-1.5">
+                          <stat.icon className="w-3 h-3" style={{ color: stat.color }} />
+                          <p className="text-xs" style={{ color: '#8b949e' }}>{stat.label}</p>
+                        </div>
+                        <SvgSparkline color={stat.color} values={stat.sparkline} />
                       </div>
                       <div
                         className="p-2.5 rounded-xl relative"
@@ -978,6 +1030,13 @@ export function DashboardView() {
                       background: `linear-gradient(to top, ${stat.color}08, transparent)`,
                     }}
                   />
+                  {/* Animated gradient background on hover */}
+                  <div
+                    className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-700"
+                    style={{
+                      background: `linear-gradient(135deg, ${stat.color}06 0%, ${stat.color}0c 50%, ${stat.color}04 100%)`,
+                    }}
+                  />
                 </Card>
               </TooltipTrigger>
               <TooltipContent
@@ -1001,6 +1060,127 @@ export function DashboardView() {
         transition={{ delay: 0.15, duration: 0.4 }}
       >
         <ProjectAnalytics />
+      </motion.div>
+
+      {/* ================================================
+          PROJECT HEALTH DASHBOARD — Circular Metrics Grid
+          ================================================ */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.18, duration: 0.4 }}
+      >
+        <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4" style={{ color: '#3fb950' }} />
+                <CardTitle className="text-sm" style={{ color: '#c9d1d9' }}>Project Health</CardTitle>
+              </div>
+              <Badge variant="outline" className="text-[9px] px-1.5" style={{ borderColor: '#3fb95030', color: '#3fb950' }}>Live</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: 'Code Quality', value: 87, trend: '+3%', trendUp: true, icon: FileCode },
+                { label: 'Test Coverage', value: 72, trend: '+8%', trendUp: true, icon: CheckCircle },
+                { label: 'Security Score', value: 94, trend: '+1%', trendUp: true, icon: Shield },
+                { label: 'Performance', value: 89, trend: '-2%', trendUp: false, icon: Zap },
+              ].map((metric, i) => {
+                const ringColor = metric.value >= 80 ? '#3fb950' : metric.value >= 60 ? '#e3b341' : '#f85149';
+                const size = 80;
+                const strokeWidth = 6;
+                const radius = (size - strokeWidth) / 2;
+                const circumference = radius * 2 * Math.PI;
+                const offset = circumference - (metric.value / 100) * circumference;
+                return (
+                  <motion.div
+                    key={metric.label}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2 + i * 0.1, duration: 0.4, ease: 'easeOut' }}
+                    whileHover={{ y: -4, scale: 1.03 }}
+                    className="flex flex-col items-center p-4 rounded-xl border cursor-default group relative overflow-hidden"
+                    style={{
+                      backgroundColor: '#0d1117',
+                      borderColor: `${ringColor}25`,
+                    }}
+                  >
+                    {/* Hover glow */}
+                    <div
+                      className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                      style={{
+                        background: `radial-gradient(circle at center, ${ringColor}08, transparent 70%)`,
+                      }}
+                    />
+                    {/* Circular ring */}
+                    <div className="relative" style={{ width: size, height: size }}>
+                      <svg width={size} height={size} className="transform -rotate-90">
+                        <circle
+                          cx={size / 2}
+                          cy={size / 2}
+                          r={radius}
+                          fill="none"
+                          stroke="#21262d"
+                          strokeWidth={strokeWidth}
+                        />
+                        <motion.circle
+                          cx={size / 2}
+                          cy={size / 2}
+                          r={radius}
+                          fill="none"
+                          stroke={ringColor}
+                          strokeWidth={strokeWidth}
+                          strokeDasharray={circumference}
+                          strokeLinecap="round"
+                          initial={{ strokeDashoffset: circumference }}
+                          animate={{ strokeDashoffset: offset }}
+                          transition={{ duration: 1.2, ease: 'easeInOut', delay: 0.3 + i * 0.1 }}
+                          style={{
+                            filter: `drop-shadow(0 0 6px ${ringColor}60)`,
+                          }}
+                          className="group-hover:animate-pulse"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <motion.span
+                          className="text-lg font-bold"
+                          style={{ color: ringColor }}
+                          initial={{ opacity: 0, scale: 0.5 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: 0.8 + i * 0.1, duration: 0.4, type: 'spring' }}
+                        >
+                          {metric.value}%
+                        </motion.span>
+                      </div>
+                    </div>
+                    {/* Label + Trend */}
+                    <div className="mt-3 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <metric.icon className="w-3 h-3" style={{ color: ringColor }} />
+                        <span className="text-[11px] font-medium" style={{ color: '#c9d1d9' }}>{metric.label}</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-1 mt-1">
+                        {metric.trendUp ? (
+                          <TrendingUp className="w-2.5 h-2.5" style={{ color: '#3fb950' }} />
+                        ) : (
+                          <TrendingDown className="w-2.5 h-2.5" style={{ color: '#f85149' }} />
+                        )}
+                        <span
+                          className="text-[10px] font-semibold"
+                          style={{ color: metric.trendUp ? '#3fb950' : '#f85149' }}
+                        >
+                          {metric.trend}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* ================================================
@@ -1902,13 +2082,10 @@ export function DashboardView() {
                     size="sm"
                     className="h-6 text-[11px] gap-1"
                     style={{ color: '#58a6ff' }}
-                    onClick={() => setShowAllActivities(!showAllActivities)}
+                    onClick={() => setShowActivityModal(true)}
                   >
-                    {showAllActivities ? 'Show Less' : 'View All'}
-                    <ChevronDown
-                      className="w-3 h-3 transition-transform duration-200"
-                      style={{ transform: showAllActivities ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                    />
+                    View All
+                    <ChevronDown className="w-3 h-3" />
                   </Button>
                 </div>
               </div>
@@ -1916,7 +2093,9 @@ export function DashboardView() {
             <CardContent>
               <div className="space-y-0 max-h-96 overflow-y-auto custom-scrollbar">
                 <AnimatePresence>
-                  {visibleActivities.map((activity, i) => (
+                  {visibleActivities.map((activity, i) => {
+                    const pill = CATEGORY_PILLS[activity.category] || CATEGORY_PILLS['Build'];
+                    return (
                     <motion.div
                       key={activity.id}
                       initial={{ opacity: 0, x: -15 }}
@@ -1937,11 +2116,13 @@ export function DashboardView() {
                           <ActivityIcon type={activity.type} color={activity.color} />
                         </div>
                         {i < visibleActivities.length - 1 && (
-                          <div
+                          <motion.div
                             className="w-0.5 flex-1 min-h-[20px]"
                             style={{
                               background: `linear-gradient(to bottom, ${activity.color}40, #21262d)`,
                             }}
+                            animate={{ opacity: [0.4, 1, 0.4] }}
+                            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: i * 0.3 }}
                           />
                         )}
                       </div>
@@ -1955,8 +2136,12 @@ export function DashboardView() {
                           >
                             {getRelativeTime(activity.time)}
                           </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: `${activity.color}10`, color: '#8b949e' }}>
-                            {activity.type.replace('_', ' ')}
+                          {/* Category pill */}
+                          <span
+                            className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                            style={{ backgroundColor: pill.bg, color: pill.color }}
+                          >
+                            {activity.category}
                           </span>
                           <ChevronRight
                             className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ml-auto"
@@ -1965,7 +2150,8 @@ export function DashboardView() {
                         </div>
                       </div>
                     </motion.div>
-                  ))}
+                    );
+                  })}
                 </AnimatePresence>
               </div>
               {/* View All Link */}
@@ -1973,7 +2159,7 @@ export function DashboardView() {
                 <button
                   className="flex items-center gap-1.5 text-xs font-medium transition-colors"
                   style={{ color: '#58a6ff' }}
-                  onClick={() => setCurrentView('deploy')}
+                  onClick={() => setShowActivityModal(true)}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#79c0ff'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#58a6ff'; }}
                 >
@@ -2122,6 +2308,101 @@ export function DashboardView() {
       </motion.div>
 
     </div>
+
+      {/* ================================================
+          ACTIVITY MODAL — Full History Drawer
+          ================================================ */}
+      <AnimatePresence>
+        {showActivityModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex justify-end"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {/* Backdrop */}
+            <motion.div
+              className="absolute inset-0"
+              style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+              onClick={() => setShowActivityModal(false)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            />
+            {/* Drawer */}
+            <motion.div
+              className="relative w-full max-w-md h-full overflow-y-auto"
+              style={{ backgroundColor: '#161b22', borderLeft: '1px solid #30363d' }}
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            >
+              {/* Drawer header */}
+              <div className="sticky top-0 z-10 px-5 py-4 flex items-center justify-between" style={{ backgroundColor: '#161b22', borderBottom: '1px solid #30363d' }}>
+                <div className="flex items-center gap-2">
+                  <Timer className="w-4 h-4" style={{ color: '#58a6ff' }} />
+                  <h2 className="text-sm font-semibold" style={{ color: '#c9d1d9' }}>Activity History</h2>
+                  <Badge variant="outline" className="text-[9px] px-1.5" style={{ borderColor: '#30363d', color: '#8b949e' }}>{SAMPLE_ACTIVITIES.length} events</Badge>
+                </div>
+                <button
+                  onClick={() => setShowActivityModal(false)}
+                  className="p-1.5 rounded-lg transition-colors hover:bg-[#21262d]"
+                  style={{ color: '#8b949e' }}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {/* Activity list */}
+              <div className="p-4 space-y-0">
+                {SAMPLE_ACTIVITIES.map((activity, i) => {
+                  const pill = CATEGORY_PILLS[activity.category] || CATEGORY_PILLS['Build'];
+                  return (
+                    <motion.div
+                      key={activity.id}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.04, duration: 0.3 }}
+                      className="flex items-start gap-3 py-3 cursor-pointer group rounded-lg px-2 -mx-2 transition-colors"
+                      onClick={() => { setCurrentView(activity.view); setShowActivityModal(false); }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = `${activity.color}08`; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+                    >
+                      <div className="flex flex-col items-center shrink-0">
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 z-10 transition-transform duration-200 group-hover:scale-110"
+                          style={{ backgroundColor: `${activity.color}18` }}
+                        >
+                          <ActivityIcon type={activity.type} color={activity.color} />
+                        </div>
+                        {i < SAMPLE_ACTIVITIES.length - 1 && (
+                          <motion.div
+                            className="w-0.5 flex-1 min-h-[16px]"
+                            style={{
+                              background: `linear-gradient(to bottom, ${activity.color}40, #21262d)`,
+                            }}
+                            animate={{ opacity: [0.4, 1, 0.4] }}
+                            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: i * 0.2 }}
+                          />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium" style={{ color: '#c9d1d9' }}>{activity.message}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] font-mono" style={{ color: activity.color }}>{getRelativeTime(activity.time)}</span>
+                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: pill.bg, color: pill.color }}>{activity.category}</span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </TooltipProvider>
   );
 }

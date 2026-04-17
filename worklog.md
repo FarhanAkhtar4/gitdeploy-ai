@@ -1298,3 +1298,101 @@ Stage Summary:
 - All code now live at https://github.com/FarhanAkhtar4/gitdeploy-ai
 - Cron job 100817 set up for continuous improvement every 15 minutes
 - GitHub repo is fully up to date with comprehensive documentation
+
+---
+Task ID: 12-a
+Agent: subagent (Dashboard + Builder Enhancement)
+
+Work Log:
+- Read worklog.md — reviewed 10+ previous phases of development
+- Read existing dashboard-view.tsx (2127 lines) and builder-view.tsx (1691 lines) to understand current state
+- Enhanced Dashboard View with 3 major feature areas
+- Enhanced Builder View with 3 major feature areas
+- Fixed runtime error: duplicate BarChart3 import in builder-view.tsx caused 500 error
+- Cleaned up unused imports (AlertTriangle, RefreshCw, Award, Bug)
+- Ran lint — passes with zero errors
+- Dev server compiles successfully on port 3000 (HTTP 200 confirmed)
+
+## Dashboard View Enhancements (dashboard-view.tsx)
+
+### 1. Project Health Dashboard (NEW section)
+- Added new section between ProjectAnalytics and Team Activity Feed
+- Grid of 4 circular progress indicators: Code Quality (87%), Test Coverage (72%), Security Score (94%), Performance (89%)
+- Each metric has colored SVG ring (green > 80%, yellow > 60%, red < 60%)
+- Score number in center with animated entrance (spring animation)
+- Trend arrow indicator (+3%, +8%, +1%, -2%) with TrendingUp/TrendingDown icons
+- Hover effect: ring pulses (group-hover:animate-pulse) and card lifts slightly with glow
+- Staggered entrance animation (0.1s delay per card)
+
+### 2. Recent Activity Timeline Enhancements
+- Added "View All" button that opens a slide-in drawer/modal with full activity history
+- Drawer slides in from right side with spring animation, backdrop overlay, close button
+- Color-coded category pills: Deploy=green, Build=blue, Error=red, Settings=purple
+- Added category field to all SAMPLE_ACTIVITIES entries
+- Created CATEGORY_PILLS config object for consistent color mapping
+- Animated pulsing timeline connector lines between items (opacity animation 0.4→1→0.4)
+- Drawer has sticky header with Timer icon, event count badge, close (X) button
+- Clicking activity in drawer navigates to relevant view and closes drawer
+- Both "View All" button and "View All Activity" link open the drawer
+
+### 3. Quick Stats Enhancement
+- Added SvgSparkline component (SVG path-based sparkline with gradient fill area)
+- Replaced MiniSparkline (bar-based) with SvgSparkline in stats cards
+- Added animated gradient background on hover (3-stop gradient overlay, 700ms transition)
+- Added small icon next to each stat label (stat.icon component next to text)
+- Changed "Failed" stat icon from Rocket to AlertCircle for semantic accuracy
+
+### 4. New Components Added
+- SvgSparkline — SVG path-based sparkline with gradient fill and animated line (pathLength animation)
+- CATEGORY_PILLS — Color configuration for Deploy, Build, Error, Settings categories
+
+### 5. Import Additions
+- Added `X` icon import for modal close button
+
+## Builder View Enhancements (builder-view.tsx)
+
+### 1. AI Code Quality Analyzer (NEW collapsible section)
+- Collapsible section in side panel with animated expand/collapse
+- Overall quality score: Grade "A" (85/100) with green gradient badge
+- 4 horizontal gradient bars: Maintainability (88%), Reliability (82%), Security (90%), Performance (78%)
+- Each bar has gradient fill (linear-gradient) and animated entrance (0.8s, staggered 0.1s)
+- "Run Analysis" button with Loader2 spinner animation (2s simulated loading)
+- Collapsible toggle with ChevronDown rotation indicator
+
+### 2. Dependency Scanner (NEW collapsible section)
+- Collapsible section in side panel with animated expand/collapse
+- 8 mock dependencies: next, react, prisma, tailwindcss, framer-motion, lucide-react, eslint, jsonwebtoken
+- Status dots and pills: Up-to-date=green/OK, Outdated=yellow/Old, Vulnerable=red/Vuln
+- Total count badges in header: "6 ok · 1 old · 1 vuln"
+- Each dependency row has: status dot, name (monospace), version, status pill, Update button (for outdated/vulnerable)
+- "Scan Dependencies" button with Loader2 spinner (1.5s simulated loading)
+
+### 3. Enhanced File Tree
+- Added search/filter input at top of file tree with Search icon and focus border highlight
+- Added File Stats summary below tree: Total Files count, TS file count (Code2 icon), Config file count (FileJson icon)
+- Updated getFileIcon function with enhanced icon and color mapping:
+  - TS/TSX/JS/JSX: Code2 icon in blue (#58a6ff)
+  - JSON/YAML/YAML/TOML: FileJson icon in yellow (#e3b341)
+  - CSS/SCSS/LESS: FileType icon in purple (#a371f7)
+  - MD/TXT: File icon in gray (#8b949e)
+  - Prisma: Database icon in green (#3fb950)
+  - Config files (.env, .gitignore, .dockerignore, .eslintrc, .prettierrc): File icon in green (#3fb950)
+
+### 4. New State Variables
+- codeQualityOpen, depScannerOpen — collapse toggles
+- codeQualityLoading, depScannerLoading — button loading states
+- fileTreeSearch — search/filter for file tree
+
+### 5. Import Additions
+- ChevronDown, FileJson, FileType, Search (removed unused: AlertTriangle, RefreshCw, Award, Bug)
+
+## Bugs Fixed
+- Removed duplicate BarChart3 import in builder-view.tsx (caused HTTP 500 error)
+- Removed unused imports: AlertTriangle, RefreshCw, Award, Bug
+
+Stage Summary:
+- Dashboard View: 3 enhancement areas (Project Health Dashboard, Activity Timeline with drawer, Quick Stats with SVG sparklines)
+- Builder View: 3 enhancement areas (Code Quality Analyzer, Dependency Scanner, Enhanced File Tree)
+- All existing functionality preserved
+- Lint passes with zero errors
+- Dev server compiles successfully on port 3000

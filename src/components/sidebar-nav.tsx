@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import {
   LayoutDashboard,
@@ -16,6 +16,16 @@ import {
   Menu,
   Crown,
   Keyboard,
+  Plus,
+  FolderPlus,
+  MessageCirclePlus,
+  GitPullRequest,
+  Activity,
+  Database,
+  Bot,
+  CheckCircle2,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import { useAppStore, type AppView } from '@/store/app-store';
 import { Button } from '@/components/ui/button';
@@ -49,8 +59,40 @@ const NAV_ITEMS: Array<{ view: AppView; label: string; icon: React.ElementType; 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { currentView, setCurrentView, sidebarOpen, setSidebarOpen, githubUser, isGithubConnected } = useAppStore();
 
+  // Quick create menu state
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const quickCreateRef = useRef<HTMLDivElement>(null);
+
+  // Status popover state
+  const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
+  const statusPopoverRef = useRef<HTMLDivElement>(null);
+
+  // System status data
+  const systemStatus = [
+    { name: 'API Gateway', status: 'operational' as const, icon: Activity },
+    { name: 'Database', status: 'operational' as const, icon: Database },
+    { name: 'GitHub Integration', status: 'operational' as const, icon: Github },
+    { name: 'AI Service', status: 'operational' as const, icon: Bot },
+  ];
+  const allOperational = systemStatus.every(s => s.status === 'operational');
+
+  // Close popovers on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (quickCreateRef.current && !quickCreateRef.current.contains(e.target as Node)) {
+        setQuickCreateOpen(false);
+      }
+      if (statusPopoverRef.current && !statusPopoverRef.current.contains(e.target as Node)) {
+        setStatusPopoverOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
   const handleNav = (view: AppView) => {
     setCurrentView(view);
+    setQuickCreateOpen(false);
     onNavigate?.();
   };
 
@@ -71,7 +113,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         }}
       />
 
-      {/* Logo */}
+      {/* Logo + Quick Create Button */}
       <div className="flex items-center gap-2.5 px-3 py-4 border-b relative z-10" style={{ borderColor: '#30363d' }}>
         <div
           className="relative flex items-center justify-center w-9 h-9 rounded-xl overflow-hidden shrink-0 animate-float-gentle"
@@ -99,7 +141,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.2 }}
-              className="flex flex-col"
+              className="flex flex-col flex-1 min-w-0"
             >
               <span
                 className="font-bold text-sm tracking-tight"
@@ -118,6 +160,66 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Quick Create "+" Button */}
+        <div className="relative" ref={quickCreateRef}>
+          <motion.button
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
+            onClick={() => setQuickCreateOpen(!quickCreateOpen)}
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0"
+            style={{
+              backgroundColor: quickCreateOpen ? '#58a6ff' : '#58a6ff20',
+              color: quickCreateOpen ? 'white' : '#58a6ff',
+              border: '1px solid #58a6ff40',
+            }}
+            aria-label="Quick create"
+          >
+            <motion.div
+              animate={{ rotate: quickCreateOpen ? 45 : 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Plus className="w-4 h-4" />
+            </motion.div>
+          </motion.button>
+
+          {/* Quick Create Dropdown */}
+          <AnimatePresence>
+            {quickCreateOpen && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: -4 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                className="absolute top-full mt-1 right-0 w-48 rounded-xl overflow-hidden z-50"
+                style={{
+                  backgroundColor: '#1c2128',
+                  border: '1px solid #30363d',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(88,166,255,0.1)',
+                }}
+              >
+                {[
+                  { icon: FolderPlus, label: 'New Project', view: 'builder' as AppView, color: '#58a6ff' },
+                  { icon: MessageCirclePlus, label: 'New Chat', view: 'chat' as AppView, color: '#3fb950' },
+                  { icon: GitPullRequest, label: 'Import Repository', view: 'deploy' as AppView, color: '#e3b341' },
+                ].map((item, i) => (
+                  <motion.button
+                    key={item.label}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05, duration: 0.15 }}
+                    className="flex items-center gap-2.5 w-full px-3 py-2.5 text-xs transition-colors hover:bg-[#30363d] text-left"
+                    style={{ color: '#c9d1d9' }}
+                    onClick={() => handleNav(item.view)}
+                  >
+                    <item.icon className="w-3.5 h-3.5 shrink-0" style={{ color: item.color }} />
+                    {item.label}
+                  </motion.button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Nav Items */}
@@ -408,6 +510,88 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             {sidebarOpen && <span>Connect GitHub</span>}
           </button>
         )}
+      </div>
+
+      {/* System Status Bar */}
+      <div className="px-2 py-2 border-t relative z-10" style={{ borderColor: '#30363d' }}>
+        <div className="relative" ref={statusPopoverRef}>
+          <button
+            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg transition-colors hover:bg-[#21262d] text-left"
+            onClick={() => setStatusPopoverOpen(!statusPopoverOpen)}
+          >
+            <span className="relative flex items-center justify-center shrink-0">
+              <span
+                className="absolute w-2.5 h-2.5 rounded-full animate-ping"
+                style={{ backgroundColor: allOperational ? 'rgba(63,185,80,0.4)' : 'rgba(227,179,65,0.4)' }}
+              />
+              <span
+                className="relative w-2.5 h-2.5 rounded-full"
+                style={{ backgroundColor: allOperational ? '#3fb950' : '#e3b341' }}
+              />
+            </span>
+            {sidebarOpen && (
+              <>
+                <span className="text-[10px] truncate" style={{ color: allOperational ? '#3fb950' : '#e3b341' }}>
+                  {allOperational ? 'All Systems Operational' : 'Degraded Performance'}
+                </span>
+                <ChevronRight
+                  className="w-3 h-3 ml-auto transition-transform shrink-0"
+                  style={{ color: '#484f58', transform: statusPopoverOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                />
+              </>
+            )}
+          </button>
+
+          {/* Status Popover */}
+          <AnimatePresence>
+            {statusPopoverOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="absolute bottom-full mb-2 left-0 right-0 rounded-xl overflow-hidden z-50"
+                style={{
+                  backgroundColor: '#1c2128',
+                  border: '1px solid #30363d',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                }}
+              >
+                <div className="px-3 py-2 border-b" style={{ borderColor: '#30363d' }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#8b949e' }}>System Status</p>
+                </div>
+                <div className="p-2 space-y-1">
+                  {systemStatus.map((svc) => {
+                    const SvcIcon = svc.icon;
+                    const isOk = svc.status === 'operational';
+                    return (
+                      <div
+                        key={svc.name}
+                        className="flex items-center justify-between px-2 py-1.5 rounded-lg"
+                        style={{ backgroundColor: '#0d1117' }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <SvcIcon className="w-3.5 h-3.5" style={{ color: isOk ? '#3fb950' : '#f85149' }} />
+                          <span className="text-[10px]" style={{ color: '#c9d1d9' }}>{svc.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {isOk ? (
+                            <CheckCircle2 className="w-3 h-3" style={{ color: '#3fb950' }} />
+                          ) : (
+                            <AlertCircle className="w-3 h-3" style={{ color: '#f85149' }} />
+                          )}
+                          <span className="text-[9px]" style={{ color: isOk ? '#3fb950' : '#f85149' }}>
+                            {isOk ? 'Operational' : 'Issues'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Collapse Toggle — desktop only */}

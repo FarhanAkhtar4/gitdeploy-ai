@@ -89,6 +89,10 @@ import {
   Megaphone,
   BellRing,
   FileText,
+  Laptop,
+  MapPin,
+  QrCode,
+  MonitorSmartphone,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1049,6 +1053,194 @@ export function SettingsView() {
               >
                 View Full Audit Log <ArrowRight className="w-3 h-3" />
               </button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ============ ACTIVE SESSIONS ============ */}
+      <motion.div custom={2} variants={cardVariants} initial="hidden" animate="visible">
+        <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2" style={{ color: '#8b949e' }}>
+                <Laptop className="w-4 h-4" style={{ color: '#79c0ff' }} /> Active Sessions
+              </CardTitle>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#79c0ff15', color: '#79c0ff', border: '1px solid #79c0ff25' }}>
+                {4} devices
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {[
+              { id: 's1', device: 'MacBook Pro', browser: 'Chrome 121', location: 'Mumbai, India', ip: '192.168.1.42', lastActive: 'Current session', isCurrent: true, icon: Laptop },
+              { id: 's2', device: 'iPhone 15', browser: 'Safari 17', location: 'Mumbai, India', ip: '192.168.1.55', lastActive: '2 hours ago', isCurrent: false, icon: Smartphone },
+              { id: 's3', device: 'Windows Desktop', browser: 'Firefox 122', location: 'Bangalore, India', ip: '10.0.0.87', lastActive: '1 day ago', isCurrent: false, icon: Monitor },
+              { id: 's4', device: 'iPad Air', browser: 'Safari 17', location: 'Delhi, India', ip: '192.168.2.10', lastActive: '3 days ago', isCurrent: false, icon: MonitorSmartphone },
+            ].map((session, i) => {
+              const Icon = session.icon;
+              return (
+                <motion.div
+                  key={session.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.05 + i * 0.05, duration: 0.3 }}
+                  className="flex items-center justify-between p-3 rounded-xl transition-all duration-200"
+                  style={{
+                    backgroundColor: '#0d1117',
+                    border: `1px solid ${session.isCurrent ? '#3fb95040' : '#21262d'}`,
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg" style={{ backgroundColor: session.isCurrent ? '#3fb95015' : '#58a6ff15' }}>
+                      <Icon className="w-4 h-4" style={{ color: session.isCurrent ? '#3fb950' : '#58a6ff' }} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-medium" style={{ color: '#c9d1d9' }}>{session.device}</p>
+                        {session.isCurrent && (
+                          <span className="flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#3fb950' }} />
+                            <span className="text-[9px] font-medium" style={{ color: '#3fb950' }}>Current</span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="text-[10px]" style={{ color: '#8b949e' }}>{session.browser}</span>
+                        <span className="text-[9px] flex items-center gap-1" style={{ color: '#484f58' }}>
+                          <MapPin className="w-2.5 h-2.5" /> {session.location}
+                        </span>
+                        <span className="text-[9px] flex items-center gap-1" style={{ color: '#484f58' }}>
+                          <Globe className="w-2.5 h-2.5" /> {session.ip}
+                        </span>
+                      </div>
+                      <p className="text-[9px] mt-0.5" style={{ color: '#484f58' }}>{session.lastActive}</p>
+                    </div>
+                  </div>
+                  {!session.isCurrent && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-[10px] h-7 gap-1 shrink-0"
+                      style={{ borderColor: '#f8514940', color: '#f85149' }}
+                      onClick={() => toast({ title: 'Session Revoked', description: `${session.device} session has been terminated` })}
+                    >
+                      <LogOut className="w-3 h-3" /> Revoke
+                    </Button>
+                  )}
+                </motion.div>
+              );
+            })}
+            <div className="mt-2 pt-2" style={{ borderTop: '1px solid #21262d' }}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-[10px] gap-1"
+                style={{ borderColor: '#f8514930', color: '#f85149' }}
+                onClick={() => toast({ title: 'All Sessions Revoked', description: 'All other sessions have been terminated' })}
+              >
+                <LogOut className="w-3 h-3" /> Revoke All Other Sessions
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ============ TWO-FACTOR AUTHENTICATION ============ */}
+      <motion.div custom={2} variants={cardVariants} initial="hidden" animate="visible">
+        <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2" style={{ color: '#8b949e' }}>
+                <ShieldCheck className="w-4 h-4" style={{ color: '#3fb950' }} /> Two-Factor Authentication
+              </CardTitle>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{
+                backgroundColor: false ? '#3fb95015' : '#f8514915',
+                color: false ? '#3fb950' : '#f85149',
+                border: `1px solid ${false ? '#3fb95025' : '#f8514925'}`,
+              }}>
+                {false ? 'Enabled' : 'Disabled'}
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Toggle */}
+            <div className="flex items-center justify-between p-3 rounded-xl" style={{ backgroundColor: '#0d1117', border: '1px solid #21262d' }}>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg" style={{ backgroundColor: '#3fb95015' }}>
+                  <Fingerprint className="w-4 h-4" style={{ color: '#3fb950' }} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium" style={{ color: '#c9d1d9' }}>Enable 2FA</p>
+                  <p className="text-[10px]" style={{ color: '#8b949e' }}>Add an extra layer of security to your account</p>
+                </div>
+              </div>
+              <Switch
+                checked={false}
+                onCheckedChange={(checked) => toast({ title: checked ? '2FA Enabled' : '2FA Disabled', description: checked ? 'Two-factor authentication has been enabled' : 'Two-factor authentication has been disabled' })}
+              />
+            </div>
+
+            {/* QR Code Placeholder */}
+            <div className="p-4 rounded-xl text-center" style={{ backgroundColor: '#0d1117', border: '1px solid #21262d' }}>
+              <p className="text-[11px] font-medium mb-3" style={{ color: '#8b949e' }}>Scan with your authenticator app</p>
+              <div
+                className="w-32 h-32 mx-auto rounded-lg flex items-center justify-center relative overflow-hidden"
+                style={{ backgroundColor: '#c9d1d9', border: '2px solid #30363d' }}
+              >
+                {/* QR Code Grid Pattern */}
+                <div className="grid grid-cols-8 gap-px p-2 w-full h-full" style={{ backgroundColor: '#c9d1d9' }}>
+                  {Array.from({ length: 64 }).map((_, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        backgroundColor: Math.random() > 0.4 ? '#0d1117' : '#c9d1d9',
+                        borderRadius: '1px',
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <p className="text-[9px] mt-2 font-mono" style={{ color: '#484f58' }}>Manual key: JBSWY3DPEHPK3PXP</p>
+            </div>
+
+            {/* Backup Codes */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] font-medium flex items-center gap-1.5" style={{ color: '#8b949e' }}>
+                  <Key className="w-3 h-3" /> Backup Recovery Codes
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-[9px] h-6 gap-1"
+                  style={{ borderColor: '#30363d', color: '#8b949e' }}
+                  onClick={() => {
+                    const codes = ['a1b2-c3d4', 'e5f6-g7h8', 'i9j0-k1l2', 'm3n4-o5p6', 'q7r8-s9t0', 'u1v2-w3x4', 'y5z6-a7b8', 'c9d0-e1f2'];
+                    navigator.clipboard.writeText(codes.join('\n'));
+                    toast({ title: 'Copied', description: 'All backup codes copied to clipboard' });
+                  }}
+                >
+                  <Copy className="w-2.5 h-2.5" /> Copy All
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {['a1b2-c3d4', 'e5f6-g7h8', 'i9j0-k1l2', 'm3n4-o5p6', 'q7r8-s9t0', 'u1v2-w3x4', 'y5z6-a7b8', 'c9d0-e1f2'].map((code, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.03 * i }}
+                    className="px-3 py-2 rounded-lg text-center font-mono text-[11px] font-medium"
+                    style={{ backgroundColor: '#0d1117', border: '1px solid #21262d', color: '#e3b341' }}
+                  >
+                    {code}
+                  </motion.div>
+                ))}
+              </div>
+              <p className="text-[9px] mt-2 text-center" style={{ color: '#484f58' }}>
+                Store these codes in a safe place. Each code can only be used once.
+              </p>
             </div>
           </CardContent>
         </Card>
