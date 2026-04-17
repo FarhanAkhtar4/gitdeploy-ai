@@ -606,6 +606,24 @@ function ActivitySkeleton() {
 export function DashboardView() {
   const { projects, setProjects, user, setCurrentView, setSelectedProject, setIsLoading, isGithubConnected } = useAppStore();
   const [loading, setLoading] = useState(true);
+
+  /* ----- Greeting State (SSR-safe: computed only after mount) ----- */
+  const [greeting, setGreeting] = useState<string | null>(null);
+  const [greetingEmoji, setGreetingEmoji] = useState<string | null>(null);
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      setGreeting('Good Morning');
+      setGreetingEmoji('\uD83C\uDF05'); // 🌅
+    } else if (hour < 18) {
+      setGreeting('Good Afternoon');
+      setGreetingEmoji('\u2600\uFE0F'); // ☀️
+    } else {
+      setGreeting('Good Evening');
+      setGreetingEmoji('\uD83C\uDF19'); // 🌙
+    }
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [frameworkFilter, setFrameworkFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -848,16 +866,20 @@ export function DashboardView() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
                   >
-                    {getGreeting()}
+                    {greeting !== null ? greeting : (
+                      <span style={{ minWidth: '200px', display: 'inline-block' }} />
+                    )}
                   </motion.span>
                   {/* Animated emoji with gentle float */}
-                  <motion.span
-                    className="text-3xl inline-block"
-                    animate={{ y: [0, -4, 0] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                  >
-                    {getGreetingEmoji()}
-                  </motion.span>
+                  {greetingEmoji !== null && (
+                    <motion.span
+                      className="text-3xl inline-block"
+                      animate={{ y: [0, -4, 0] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                    >
+                      {greetingEmoji}
+                    </motion.span>
+                  )}
                 </h1>
                 <p className="text-sm mt-2 leading-relaxed" style={{ color: '#8b949e' }}>
                   Build, deploy, and host — all in one place
