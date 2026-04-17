@@ -56,6 +56,10 @@ import {
   Database,
   Shield,
   Search,
+  Download,
+  Archive,
+  Share2,
+  GitFork,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1232,7 +1236,96 @@ export function BuilderView() {
                     >
                       <Pencil className="w-3.5 h-3.5" /> Continue Editing
                     </Button>
+                    {/* Export Dropdown */}
+                    <div className="relative group">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 w-full"
+                        style={{ borderColor: '#30363d', color: '#c9d1d9', backgroundColor: '#21262d' }}
+                        onClick={() => {
+                          const el = document.getElementById('export-dropdown-menu');
+                          if (el) el.classList.toggle('hidden');
+                        }}
+                      >
+                        <Download className="w-3.5 h-3.5" /> Export
+                        <ChevronDown className="w-3 h-3 ml-auto" />
+                      </Button>
+                      <div
+                        id="export-dropdown-menu"
+                        className="hidden absolute right-0 top-full mt-1 z-50 w-48 rounded-lg shadow-xl border py-1"
+                        style={{ backgroundColor: '#21262d', borderColor: '#30363d' }}
+                      >
+                        <button
+                          className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 transition-colors"
+                          style={{ color: '#c9d1d9' }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = '#30363d'; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+                          onClick={() => {
+                            toast({ title: 'Preparing download...', description: 'Your ZIP file is being generated.' });
+                            document.getElementById('export-dropdown-menu')?.classList.add('hidden');
+                          }}
+                        >
+                          <Archive className="w-3.5 h-3.5" style={{ color: '#58a6ff' }} /> Download as ZIP
+                        </button>
+                        <button
+                          className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 transition-colors"
+                          style={{ color: '#c9d1d9' }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = '#30363d'; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+                          onClick={() => {
+                            const allCode = generatedFiles.map(f => `// === ${f.path} ===\n${f.content}`).join('\n\n');
+                            navigator.clipboard.writeText(allCode);
+                            toast({ title: 'Copied!', description: 'All code copied to clipboard.' });
+                            document.getElementById('export-dropdown-menu')?.classList.add('hidden');
+                          }}
+                        >
+                          <Copy className="w-3.5 h-3.5" style={{ color: '#3fb950' }} /> Copy All Code
+                        </button>
+                        <button
+                          className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 transition-colors"
+                          style={{ color: '#c9d1d9' }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = '#30363d'; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+                          onClick={() => {
+                            const treeText = generatedFiles.map(f => f.path).join('\n');
+                            navigator.clipboard.writeText(treeText);
+                            toast({ title: 'Copied!', description: 'File tree copied to clipboard.' });
+                            document.getElementById('export-dropdown-menu')?.classList.add('hidden');
+                          }}
+                        >
+                          <FolderTree className="w-3.5 h-3.5" style={{ color: '#e3b341' }} /> Download File Tree
+                        </button>
+                      </div>
+                    </div>
                   </div>
+                </div>
+                {/* Share & Fork Actions Row */}
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t" style={{ borderColor: '#21262d' }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-[11px] h-7"
+                    style={{ borderColor: '#30363d', color: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.05)' }}
+                    onClick={() => {
+                      const shareLink = `https://gitdeploy.ai/share/${projectName.toLowerCase().replace(/\s+/g, '-')}-${Date.now().toString(36)}`;
+                      navigator.clipboard.writeText(shareLink);
+                      toast({ title: 'Share link copied!', description: shareLink });
+                    }}
+                  >
+                    <Share2 className="w-3 h-3" /> Share Project
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-[11px] h-7"
+                    style={{ borderColor: '#30363d', color: '#a371f7', backgroundColor: 'rgba(163,113,247,0.05)' }}
+                    onClick={() => {
+                      toast({ title: 'Project forked!', description: `A variant of ${projectName} has been created.` });
+                    }}
+                  >
+                    <GitFork className="w-3 h-3" /> Fork Project
+                  </Button>
                 </div>
               </CardContent>
             </Card>

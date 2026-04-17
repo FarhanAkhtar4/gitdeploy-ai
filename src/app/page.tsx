@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppStore, type AppView } from '@/store/app-store';
 import { SidebarNav } from '@/components/sidebar-nav';
 import { DashboardView } from '@/components/dashboard-view';
@@ -13,6 +13,7 @@ import { SettingsView } from '@/components/settings-view';
 import { CommandPalette } from '@/components/command-palette';
 import { FileViewer } from '@/components/file-viewer';
 import { KeyboardShortcuts } from '@/components/keyboard-shortcuts';
+import { NotificationCenter, NotificationBell } from '@/components/notification-center';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -23,8 +24,113 @@ import {
   Settings,
   ArrowLeft,
   Sparkles,
+  Plus,
+  X,
 } from 'lucide-react';
 
+/* ============================================================
+   Floating Action Button (FAB) Component
+   ============================================================ */
+function FloatingActionButton({ onNavigate }: { onNavigate: (view: AppView) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const [visible, setVisible] = useState(false);
+
+  // Show FAB only when scrolled down past first viewport
+  useEffect(() => {
+    const handleScroll = () => {
+      setVisible(window.scrollY > window.innerHeight * 0.5);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    // Also check initial scroll
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // ⌘N keyboard shortcut to toggle FAB
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+        // The global shortcut already handles ⌘N for navigation,
+        // so we don't need to duplicate here
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const actions = [
+    { label: 'New Project', icon: Hammer, color: '#58a6ff', view: 'builder' as AppView },
+    { label: 'Quick Deploy', icon: Rocket, color: '#3fb950', view: 'deploy' as AppView },
+    { label: 'Ask AI', icon: MessageCircle, color: '#a371f7', view: 'chat' as AppView },
+    { label: 'View Hosting', icon: Globe, color: '#e3b341', view: 'hosting' as AppView },
+  ];
+
+  if (!visible) return null;
+
+  return (
+    <div className="fixed bottom-20 right-6 z-40 flex flex-col items-end gap-2">
+      <AnimatePresence>
+        {expanded && actions.map((action, i) => (
+          <motion.button
+            key={action.label}
+            initial={{ opacity: 0, y: 20, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.8 }}
+            transition={{ delay: i * 0.05, duration: 0.2, ease: 'easeOut' }}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium shadow-lg transition-colors"
+            style={{
+              backgroundColor: '#21262d',
+              color: action.color,
+              border: `1px solid ${action.color}30`,
+            }}
+            onClick={() => {
+              onNavigate(action.view);
+              setExpanded(false);
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.backgroundColor = '#30363d';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.backgroundColor = '#21262d';
+            }}
+          >
+            <action.icon className="w-3.5 h-3.5" />
+            {action.label}
+          </motion.button>
+        ))}
+      </AnimatePresence>
+
+      {/* Main FAB button */}
+      <motion.button
+        className="w-12 h-12 rounded-full flex items-center justify-center shadow-xl"
+        style={{
+          background: expanded
+            ? 'linear-gradient(135deg, #f85149, #da3633)'
+            : 'linear-gradient(135deg, #58a6ff, #238636)',
+          boxShadow: expanded
+            ? '0 0 20px rgba(248,81,73,0.3)'
+            : '0 0 20px rgba(88,166,255,0.25), 0 0 40px rgba(35,134,54,0.15)',
+        }}
+        onClick={() => setExpanded(!expanded)}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        animate={{ rotate: expanded ? 45 : 0 }}
+        transition={{ duration: 0.2 }}
+        aria-label={expanded ? 'Close quick actions' : 'Open quick actions'}
+      >
+        {expanded ? (
+          <X className="w-5 h-5 text-white" />
+        ) : (
+          <Plus className="w-5 h-5 text-white" />
+        )}
+      </motion.button>
+    </div>
+  );
+}
+
+/* ============================================================
+   Main Application Component
+   ============================================================ */
 export default function GitDeployAI() {
   const {
     currentView,
@@ -33,7 +139,12 @@ export default function GitDeployAI() {
     setKeyboardShortcutsOpen,
     setCommandPaletteOpen,
     setCurrentView,
+    notifications,
   } = useAppStore();
+
+  const [notificationOpen, setNotificationOpen] = useState(false);
+
+  const unreadNotificationCount = notifications.filter(n => !n.read).length + 5; // +5 for mock notifications
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -194,36 +305,45 @@ export default function GitDeployAI() {
                 </div>
               </div>
 
-              {/* Right: keyboard shortcut hints */}
-              <div className="hidden md:flex items-center gap-3 shrink-0">
-                {viewMeta[currentView].shortcut && (
+              {/* Right: notification bell + keyboard shortcut hints */}
+              <div className="flex items-center gap-3 shrink-0">
+                {/* Notification Bell */}
+                <NotificationBell
+                  onClick={() => setNotificationOpen(true)}
+                  unreadCount={unreadNotificationCount}
+                />
+
+                {/* Keyboard shortcut hints — hidden on mobile */}
+                <div className="hidden md:flex items-center gap-3">
+                  {viewMeta[currentView].shortcut && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px]" style={{ color: '#484f58' }}>Navigate</span>
+                      <kbd
+                        className="px-1.5 py-0.5 rounded text-[10px] font-mono border"
+                        style={{ borderColor: '#30363d', backgroundColor: '#21262d', color: '#8b949e' }}
+                      >
+                        {viewMeta[currentView].shortcut}
+                      </kbd>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px]" style={{ color: '#484f58' }}>Navigate</span>
+                    <span className="text-[11px]" style={{ color: '#484f58' }}>Search</span>
                     <kbd
                       className="px-1.5 py-0.5 rounded text-[10px] font-mono border"
                       style={{ borderColor: '#30363d', backgroundColor: '#21262d', color: '#8b949e' }}
                     >
-                      {viewMeta[currentView].shortcut}
+                      ⌘K
                     </kbd>
                   </div>
-                )}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px]" style={{ color: '#484f58' }}>Search</span>
-                  <kbd
-                    className="px-1.5 py-0.5 rounded text-[10px] font-mono border"
-                    style={{ borderColor: '#30363d', backgroundColor: '#21262d', color: '#8b949e' }}
-                  >
-                    ⌘K
-                  </kbd>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px]" style={{ color: '#484f58' }}>Shortcuts</span>
-                  <kbd
-                    className="px-1.5 py-0.5 rounded text-[10px] font-mono border"
-                    style={{ borderColor: '#30363d', backgroundColor: '#21262d', color: '#8b949e' }}
-                  >
-                    ?
-                  </kbd>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px]" style={{ color: '#484f58' }}>Shortcuts</span>
+                    <kbd
+                      className="px-1.5 py-0.5 rounded text-[10px] font-mono border"
+                      style={{ borderColor: '#30363d', backgroundColor: '#21262d', color: '#8b949e' }}
+                    >
+                      ?
+                    </kbd>
+                  </div>
                 </div>
               </div>
             </motion.header>
@@ -279,10 +399,14 @@ export default function GitDeployAI() {
         </div>
       </footer>
 
+      {/* Floating Action Button */}
+      <FloatingActionButton onNavigate={setCurrentView} />
+
       {/* Global Overlays */}
       <CommandPalette />
       <FileViewer />
       <KeyboardShortcuts />
+      <NotificationCenter open={notificationOpen} onOpenChange={setNotificationOpen} />
     </div>
   );
 }

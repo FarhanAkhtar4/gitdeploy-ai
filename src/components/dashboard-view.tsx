@@ -81,6 +81,7 @@ import { ProjectHealth } from '@/components/project-health';
 import { DeploymentHistory } from '@/components/deployment-history';
 import { ApiUsageTracker } from '@/components/api-usage-tracker';
 import { ProjectAnalytics } from '@/components/project-analytics';
+import { ActivityFeed } from '@/components/activity-feed';
 
 /* ============================================================
    Animation Variants
@@ -611,6 +612,7 @@ export function DashboardView() {
   const [sortBy, setSortBy] = useState<'recent' | 'name' | 'status'>('recent');
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
+  const [showFullActivityFeed, setShowFullActivityFeed] = useState(false);
   const { toast } = useToast();
 
   /* ----- Fetch Projects ----- */
@@ -790,6 +792,10 @@ export function DashboardView() {
   return (
     <TooltipProvider delayDuration={200}>
     <div className="space-y-6">
+      {showFullActivityFeed ? (
+        <ActivityFeed onClose={() => setShowFullActivityFeed(false)} />
+      ) : (
+        <React.Fragment>
 
       {/* ================================================
           1. HERO SECTION — ENHANCED
@@ -1063,14 +1069,17 @@ export function DashboardView() {
       </motion.div>
 
       {/* ================================================
-          PROJECT HEALTH DASHBOARD — Circular Metrics Grid
+          PROJECT HEALTH DASHBOARD — Enhanced with Score + Breakdown
           ================================================ */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.18, duration: 0.4 }}
       >
-        <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+        <Card
+          className="overflow-hidden"
+          style={{ backgroundColor: '#161b22', borderColor: '#30363d', borderTop: `3px solid ${getHealthColor(healthScore)}` }}
+        >
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1081,103 +1090,84 @@ export function DashboardView() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { label: 'Code Quality', value: 87, trend: '+3%', trendUp: true, icon: FileCode },
-                { label: 'Test Coverage', value: 72, trend: '+8%', trendUp: true, icon: CheckCircle },
-                { label: 'Security Score', value: 94, trend: '+1%', trendUp: true, icon: Shield },
-                { label: 'Performance', value: 89, trend: '-2%', trendUp: false, icon: Zap },
-              ].map((metric, i) => {
-                const ringColor = metric.value >= 80 ? '#3fb950' : metric.value >= 60 ? '#e3b341' : '#f85149';
-                const size = 80;
-                const strokeWidth = 6;
-                const radius = (size - strokeWidth) / 2;
-                const circumference = radius * 2 * Math.PI;
-                const offset = circumference - (metric.value / 100) * circumference;
-                return (
-                  <motion.div
-                    key={metric.label}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.2 + i * 0.1, duration: 0.4, ease: 'easeOut' }}
-                    whileHover={{ y: -4, scale: 1.03 }}
-                    className="flex flex-col items-center p-4 rounded-xl border cursor-default group relative overflow-hidden"
-                    style={{
-                      backgroundColor: '#0d1117',
-                      borderColor: `${ringColor}25`,
-                    }}
-                  >
-                    {/* Hover glow */}
-                    <div
-                      className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                      style={{
-                        background: `radial-gradient(circle at center, ${ringColor}08, transparent 70%)`,
-                      }}
-                    />
-                    {/* Circular ring */}
-                    <div className="relative" style={{ width: size, height: size }}>
-                      <svg width={size} height={size} className="transform -rotate-90">
-                        <circle
-                          cx={size / 2}
-                          cy={size / 2}
-                          r={radius}
-                          fill="none"
-                          stroke="#21262d"
-                          strokeWidth={strokeWidth}
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* Left: Main Health Score with Circular Progress */}
+              <div className="flex flex-col items-center gap-3 md:min-w-[180px]">
+                <CircularProgress value={healthScore} size={120} strokeWidth={10} />
+                <div className="text-center">
+                  <p className="text-sm font-semibold" style={{ color: '#c9d1d9' }}>
+                    {getHealthLabel(healthScore)}
+                  </p>
+                  <p className="text-[10px] mt-0.5" style={{ color: '#8b949e' }}>
+                    Overall project health
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  className="gap-1.5 text-[11px] h-7 mt-1"
+                  style={{
+                    backgroundColor: 'rgba(88,166,255,0.1)',
+                    color: '#58a6ff',
+                    border: '1px solid rgba(88,166,255,0.2)',
+                  }}
+                  onClick={() => setCurrentView('chat')}
+                >
+                  <Sparkles className="w-3 h-3" /> Improve Score
+                </Button>
+              </div>
+
+              {/* Right: Health Breakdown with Progress Bars */}
+              <div className="flex-1 space-y-4">
+                {[
+                  { label: 'Code Quality', value: 85, icon: FileCode },
+                  { label: 'Test Coverage', value: 72, icon: CheckCircle },
+                  { label: 'Security', value: 90, icon: Shield },
+                  { label: 'Performance', value: 78, icon: Zap },
+                ].map((metric, i) => {
+                  const barColor = metric.value >= 80 ? '#3fb950' : metric.value >= 60 ? '#e3b341' : '#f85149';
+                  return (
+                    <motion.div
+                      key={metric.label}
+                      initial={{ opacity: 0, x: -15 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 + i * 0.1, duration: 0.4, ease: 'easeOut' }}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <metric.icon className="w-3.5 h-3.5" style={{ color: barColor }} />
+                          <span className="text-xs font-medium" style={{ color: '#c9d1d9' }}>{metric.label}</span>
+                        </div>
+                        <span className="text-xs font-semibold tabular-nums" style={{ color: barColor }}>{metric.value}%</span>
+                      </div>
+                      <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#21262d' }}>
+                        <motion.div
+                          className="h-full rounded-full"
+                          style={{ backgroundColor: barColor }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${metric.value}%` }}
+                          transition={{ duration: 0.8, ease: 'easeOut', delay: 0.5 + i * 0.1 }}
                         />
-                        <motion.circle
-                          cx={size / 2}
-                          cy={size / 2}
-                          r={radius}
-                          fill="none"
-                          stroke={ringColor}
-                          strokeWidth={strokeWidth}
-                          strokeDasharray={circumference}
-                          strokeLinecap="round"
-                          initial={{ strokeDashoffset: circumference }}
-                          animate={{ strokeDashoffset: offset }}
-                          transition={{ duration: 1.2, ease: 'easeInOut', delay: 0.3 + i * 0.1 }}
-                          style={{
-                            filter: `drop-shadow(0 0 6px ${ringColor}60)`,
-                          }}
-                          className="group-hover:animate-pulse"
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <motion.span
-                          className="text-lg font-bold"
-                          style={{ color: ringColor }}
-                          initial={{ opacity: 0, scale: 0.5 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: 0.8 + i * 0.1, duration: 0.4, type: 'spring' }}
-                        >
-                          {metric.value}%
-                        </motion.span>
                       </div>
+                    </motion.div>
+                  );
+                })}
+
+                {/* Mini metric summary row */}
+                <div className="flex items-center gap-3 pt-3 mt-2 border-t" style={{ borderColor: '#21262d' }}>
+                  {[
+                    { label: 'Green', range: '≥80%', count: 2, color: '#3fb950' },
+                    { label: 'Yellow', range: '≥60%', count: 2, color: '#e3b341' },
+                    { label: 'Red', range: '<60%', count: 0, color: '#f85149' },
+                  ].map(s => (
+                    <div key={s.label} className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
+                      <span className="text-[10px]" style={{ color: '#8b949e' }}>
+                        {s.range}: {s.count}
+                      </span>
                     </div>
-                    {/* Label + Trend */}
-                    <div className="mt-3 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <metric.icon className="w-3 h-3" style={{ color: ringColor }} />
-                        <span className="text-[11px] font-medium" style={{ color: '#c9d1d9' }}>{metric.label}</span>
-                      </div>
-                      <div className="flex items-center justify-center gap-1 mt-1">
-                        {metric.trendUp ? (
-                          <TrendingUp className="w-2.5 h-2.5" style={{ color: '#3fb950' }} />
-                        ) : (
-                          <TrendingDown className="w-2.5 h-2.5" style={{ color: '#f85149' }} />
-                        )}
-                        <span
-                          className="text-[10px] font-semibold"
-                          style={{ color: metric.trendUp ? '#3fb950' : '#f85149' }}
-                        >
-                          {metric.trend}
-                        </span>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
+                  ))}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -2159,7 +2149,7 @@ export function DashboardView() {
                 <button
                   className="flex items-center gap-1.5 text-xs font-medium transition-colors"
                   style={{ color: '#58a6ff' }}
-                  onClick={() => setShowActivityModal(true)}
+                  onClick={() => setShowFullActivityFeed(true)}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#79c0ff'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#58a6ff'; }}
                 >
@@ -2307,8 +2297,6 @@ export function DashboardView() {
         </div>
       </motion.div>
 
-    </div>
-
       {/* ================================================
           ACTIVITY MODAL — Full History Drawer
           ================================================ */}
@@ -2403,6 +2391,9 @@ export function DashboardView() {
         )}
       </AnimatePresence>
 
+        </React.Fragment>
+      )}
+    </div>
     </TooltipProvider>
   );
 }

@@ -22,8 +22,10 @@ import {
   Pencil,
   Check,
   X,
-  Asterisk,
+  AlertCircle,
+  CheckCircle2,
   Key,
+  Circle,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -234,7 +236,7 @@ export function EnvManager() {
             )}
             {!allRequiredSet && (
               <Badge variant="outline" className="text-[10px] h-5 px-1.5" style={{ borderColor: '#f8514960', color: '#f85149' }}>
-                <Asterisk className="w-2.5 h-2.5 mr-0.5" /> {missingRequired.length} missing
+                <AlertCircle className="w-2.5 h-2.5 mr-0.5" /> {missingRequired.length} missing
               </Badge>
             )}
           </div>
@@ -428,13 +430,16 @@ export function EnvManager() {
                       <div className="flex items-center gap-2 px-3 py-2 relative z-10">
                         {/* Key */}
                         <div className="flex items-center gap-1 min-w-0 flex-1">
-                          {v.required && (
-                            <Asterisk className="w-2.5 h-2.5 shrink-0" style={{ color: '#f85149' }} />
-                          )}
-                          {isSensitiveKey(v.key) && !v.required && (
+                          {status === 'missing' ? (
+                            <AlertCircle className="w-3 h-3 shrink-0" style={{ color: '#f85149' }} />
+                          ) : status === 'empty' ? (
+                            <Circle className="w-3 h-3 shrink-0" style={{ color: '#e3b341', fill: '#e3b34120' }} />
+                          ) : isSensitiveKey(v.key) ? (
                             <Key className="w-3 h-3 shrink-0" style={{ color: '#e3b341' }} />
+                          ) : (
+                            <CheckCircle2 className="w-3 h-3 shrink-0" style={{ color: '#3fb950' }} />
                           )}
-                          <span className="text-xs font-mono truncate" style={{ color: '#58a6ff' }}>
+                          <span className="text-xs font-mono truncate" title={v.key} style={{ color: '#58a6ff' }}>
                             {v.key}
                           </span>
                         </div>
@@ -444,7 +449,7 @@ export function EnvManager() {
                           className="text-xs font-mono flex-1 truncate"
                           style={{ color: v.revealed ? '#c9d1d9' : '#484f58' }}
                         >
-                          {v.revealed ? (v.value || <span style={{ color: '#e3b341', fontStyle: 'italic' }}>empty</span>) : (v.value ? '••••••••••••' : <span style={{ color: '#e3b341', fontStyle: 'italic' }}>empty</span>)}
+                          {v.revealed ? (v.value || <span style={{ color: '#e3b341', fontStyle: 'italic', opacity: 0.9 }}>empty</span>) : (v.value ? '••••••••••••' : <span style={{ color: '#e3b341', fontStyle: 'italic', opacity: 0.9 }}>empty</span>)}
                         </span>
 
                         {/* Action buttons */}

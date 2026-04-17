@@ -1461,3 +1461,126 @@ Stage Summary:
 6. Add drag-and-drop file upload in builder view
 7. Add keyboard accessibility improvements
 8. Add hosting view: Region Map, Platform Health Status
+
+---
+Task ID: 11-b
+Agent: subagent (New Feature Additions)
+Task: Add 5 new features to the application
+
+Work Log:
+- Read worklog.md — reviewed all previous phases of development
+- Read existing page.tsx, builder-view.tsx, dashboard-view.tsx to understand current state
+- Read UI component library (sheet.tsx, dropdown-menu.tsx, input.tsx, badge.tsx, etc.) for available components
+- Created 3 new components and enhanced 3 existing files
+- Fixed JSX parsing errors in builder-view.tsx (extra closing div) and dashboard-view.tsx (fragment nesting, div/TooltipProvider ordering)
+- Ran lint — passes with zero errors
+- Dev server compiles successfully on port 3000
+
+## Feature 1: Notification Center Component (NEW)
+Created `/home/z/my-project/src/components/notification-center.tsx`:
+- Slide-out panel (Sheet from right side) with dark theme styling
+- 5 notification types: deployment_success, deployment_failed, project_created, security_alert, system_update
+- Each notification has: color-coded icon (green/red/blue/yellow/purple), title, description, relative timestamp, read/unread status
+- Mark all as read button with toast confirmation
+- Filter by type: All, Deployments, Security, System — with pill-style filter buttons
+- Notification count badge in header (unread count)
+- Empty state with Inbox icon when no notifications match filter
+- Smooth entry animations with Framer Motion (AnimatePresence, staggered list)
+- 10 mock notifications with realistic data (deployment successes/failures, project creations, security alerts, system updates)
+- Footer with Notification Settings button
+- NotificationBell component for header integration: bell icon with animated unread count badge (spring animation)
+- Merges store notifications with mock data (deduplication by id)
+
+## Feature 2: Project Export/Download Feature (Builder View Enhancement)
+Enhanced `src/components/builder-view.tsx`:
+- Added Export dropdown button in the complete phase area (alongside Deploy and Continue Editing)
+- Export options with custom dropdown menu:
+  - Download as ZIP (mock — shows toast "Preparing download...")
+  - Copy All Code (copies all generated file contents to clipboard with toast)
+  - Download File Tree (copies file paths to clipboard with toast)
+- Share Project button: generates mock shareable link and copies to clipboard with toast
+- Fork Project button: shows mock toast "Project forked!"
+- New Lucide imports: Download, Archive, Share2, GitFork
+- Custom dropdown positioned absolutely with hover states
+
+## Feature 3: Recent Activity Page Component (NEW)
+Created `/home/z/my-project/src/components/activity-feed.tsx`:
+- Comprehensive activity feed with 18 mock activity entries
+- Activity types: deployment, build, settings_change, security_event
+- Status types: success, failed, pending, warning
+- Each entry: type icon with colored background, action description, target project/repo, timestamp, status badge, actor avatar
+- Timeline connector between entries (colored vertical line)
+- Filter panel (collapsible with animation):
+  - Type filter: All, Deployments, Builds, Settings, Security
+  - Date range: All Time, Today, Last 7 days, Last 30 days
+  - Status: All, Success, Failed, Pending, Warning
+- Search within activities (searches action and target)
+- Grouped by date: Today, Yesterday, This Week, Earlier — with calendar icon headers
+- Pagination: Load More button (PAGE_SIZE=8)
+- Empty state with search icon when no activities match
+- Header with clock icon, event count, and "Back to Dashboard" button
+- Framer Motion animations throughout (staggered entry, filter panel expand/collapse)
+
+## Feature 4: Project Health Dashboard Enhancement
+Enhanced `src/components/dashboard-view.tsx`:
+- Replaced old circular metrics grid with enhanced Project Health section
+- Left side: Large circular progress indicator (120px, strokeWidth 10) showing overall health score (0-100)
+  - Animated SVG ring with glow filter
+  - Health label (Excellent/Good/Needs Setup/Getting Started)
+  - "Overall project health" subtitle
+  - "Improve Score" button linking to Chat view
+- Right side: Health breakdown with animated progress bars
+  - Code Quality: 85% (green ≥80%)
+  - Test Coverage: 72% (yellow ≥60%)
+  - Security: 90% (green ≥80%)
+  - Performance: 78% (yellow ≥60%)
+  - Color coding: green ≥80%, yellow ≥60%, red <60%
+  - Each metric has icon and percentage label
+  - Mini summary row: green/yellow/red count indicators
+- Card has colored top border matching health score
+- Framer Motion animated entry with stagger per metric
+
+## Feature 5: Global Floating Action Button (FAB)
+Enhanced `src/app/page.tsx`:
+- FloatingActionButton component with expand/collapse animation
+- Positioned bottom-right corner (bottom-20 right-6) above footer
+- "+" button that expands into 4 action options:
+  - New Project (Hammer icon, blue) → navigates to Builder
+  - Quick Deploy (Rocket icon, green) → navigates to Deploy
+  - Ask AI (MessageCircle icon, purple) → navigates to Chat
+  - View Hosting (Globe icon, yellow) → navigates to Hosting
+- Smooth expand/collapse with AnimatePresence (staggered 50ms delay per action)
+- Button rotates 45° when expanded (+ → ×)
+- Only visible when scrolled down past 50% of viewport height (scroll event listener)
+- Gradient button (blue→green when collapsed, red when expanded)
+- Glow shadow effect
+- Keyboard shortcut support (⌘N handled by global listener)
+
+## Integration Changes (page.tsx)
+- Added NotificationCenter and NotificationBell imports
+- Added notificationOpen state to main component
+- Added NotificationBell in breadcrumb header (before keyboard shortcut hints)
+- Added NotificationCenter overlay component at bottom of page
+- Unread notification count = store unread + 5 (for mock notifications)
+- Added FloatingActionButton with onNavigate={setCurrentView}
+
+## Dashboard View Integration (dashboard-view.tsx)
+- Added ActivityFeed import
+- Added showFullActivityFeed state
+- Conditional rendering: shows ActivityFeed or dashboard content
+- "View All Activity" button now opens full activity feed (replaces dashboard content temporarily)
+- Activity feed has "Back to Dashboard" button to return
+
+## Bug Fixes
+- Fixed builder-view.tsx: Extra `</div>` tag causing JSX parsing error (removed duplicate closing tag after Fork Project section)
+- Fixed dashboard-view.tsx: JSX fragment closing tag mismatch — changed from `<>...</>` to `<React.Fragment>...</React.Fragment>` for proper nesting
+- Fixed dashboard-view.tsx: Closing tag ordering — `</div>` must close before `</TooltipProvider>` for proper JSX structure
+- Fixed dashboard-view.tsx: Removed orphaned `</div>` that broke the space-y-6 div nesting
+
+Stage Summary:
+- 3 new components created: NotificationCenter (notification-center.tsx), ActivityFeed (activity-feed.tsx), FloatingActionButton (in page.tsx)
+- 3 existing files enhanced: builder-view.tsx, dashboard-view.tsx, page.tsx
+- 5 major features added: Notification Center, Export/Share/Fork, Activity Feed, Project Health Dashboard, Global FAB
+- Lint passes with zero errors
+- Dev server compiles successfully on port 3000
+- All existing functionality preserved
