@@ -168,11 +168,6 @@ export function SettingsView() {
   const [defaultFramework, setDefaultFramework] = useState('nextjs');
   const [defaultBranch, setDefaultBranch] = useState('main');
   const [autoDeploy, setAutoDeploy] = useState(true);
-  const [notifDeploy, setNotifDeploy] = useState(true);
-  const [notifBuild, setNotifBuild] = useState(true);
-  const [notifSchedule, setNotifSchedule] = useState(false);
-  const [notifMarketing, setNotifMarketing] = useState(false);
-  const [notifWorkflow, setNotifWorkflow] = useState(true);
 
   // Profile state
   const [emailNotif, setEmailNotif] = useState(true);
@@ -552,10 +547,10 @@ export function SettingsView() {
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { label: 'Deploy', state: notifDeploy, setter: setNotifDeploy, icon: Rocket, color: '#3fb950' },
-                      { label: 'Build', state: notifBuild, setter: setNotifBuild, icon: Zap, color: '#e3b341' },
-                      { label: 'Schedule', state: notifSchedule, setter: setNotifSchedule, icon: Clock, color: '#58a6ff' },
-                      { label: 'Workflow', state: notifWorkflow, setter: setNotifWorkflow, icon: Workflow, color: '#a371f7' },
+                      { label: 'Deploy', state: notifDeployment, setter: setNotifDeployment, icon: Rocket, color: '#3fb950' },
+                      { label: 'Build', state: notifPush, setter: setNotifPush, icon: Zap, color: '#e3b341' },
+                      { label: 'Schedule', state: notifWeeklyDigest, setter: setNotifWeeklyDigest, icon: Clock, color: '#58a6ff' },
+                      { label: 'Workflow', state: notifSecurity, setter: setNotifSecurity, icon: Shield, color: '#a371f7' },
                     ].map((pref, i) => (
                       <div key={i} className="flex items-center justify-between px-2.5 py-2 rounded-lg" style={{ backgroundColor: '#161b22' }}>
                         <div className="flex items-center gap-1.5">
