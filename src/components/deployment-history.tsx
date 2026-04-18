@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useMounted } from '@/hooks/use-mounted';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -155,12 +156,10 @@ const STATUS_CONFIG = {
 export function DeploymentHistory() {
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [deployments, setDeployments] = useState<DeploymentRecord[]>([]);
+  const mounted = useMounted();
 
-  // SSR-safe: Populate deployments after mount
-  useEffect(() => {
-    setDeployments(createMockDeployments());
-  }, []);
+  // SSR-safe: Only compute mock deployments after mount to avoid hydration mismatch
+  const deployments = useMemo(() => mounted ? createMockDeployments() : [], [mounted]);
 
   const filtered = filter === 'all'
     ? deployments

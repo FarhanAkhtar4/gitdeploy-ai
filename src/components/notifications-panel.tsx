@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useSyncExternalStore } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAppStore, type Notification } from '@/store/app-store';
+import { useMounted } from '@/hooks/use-mounted';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -101,10 +102,7 @@ export function NotificationsPanel() {
   const [snoozedIds, setSnoozedIds] = useState<Set<string>>(new Set());
   const [snoozeMenuId, setSnoozeMenuId] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Today', 'Yesterday']));
-  const [mounted, setMounted] = useState(false);
-
-  // SSR-safe: Only compute time-dependent values after mount
-  useEffect(() => { setMounted(true); }, []);
+  const mounted = useMounted();
 
   // Enhance notifications with priority and filter out snoozed
   const enhancedNotifications = useMemo(() => {

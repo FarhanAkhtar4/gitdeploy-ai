@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import { useAppStore } from '@/store/app-store';
+import { useMounted } from '@/hooks/use-mounted';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -163,7 +164,7 @@ const ENV_VAR_SETS: Record<Environment, Array<{ key: string; value: string; isSe
   ],
 };
 
-// Confetti particles component (SSR-safe: particles generated only after mount)
+// Confetti particles component (SSR-safe: particles generated only after mount via useMounted+useMemo)
 interface ParticleConfig {
   id: number;
   left: string;
@@ -175,11 +176,11 @@ interface ParticleConfig {
 }
 
 function ConfettiParticles() {
-  const [particles, setParticles] = useState<ParticleConfig[]>([]);
-
-  useEffect(() => {
+  const mounted = useMounted();
+  const particles = useMemo<ParticleConfig[]>(() => {
+    if (!mounted) return [];
     const colors = ['#3fb950', '#58a6ff', '#e3b341', '#56d364', '#a371f7', '#f85149'];
-    setParticles(Array.from({ length: 40 }, (_, i) => ({
+    return Array.from({ length: 40 }, (_, i) => ({
       id: i,
       left: `${Math.random() * 100}%`,
       delay: `${Math.random() * 1.5}s`,
@@ -187,8 +188,8 @@ function ConfettiParticles() {
       color: colors[Math.floor(Math.random() * 6)],
       duration: 1.5 + Math.random() * 1.5,
       shape: Math.random() > 0.5 ? 'circle' as const : 'rect' as const,
-    })));
-  }, []);
+    }));
+  }, [mounted]);
 
   if (particles.length === 0) return null;
 

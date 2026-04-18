@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback, type ChangeEvent } from 'react';
 import { useAppStore, type ChatMessage } from '@/store/app-store';
+import { useMounted } from '@/hooks/use-mounted';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -677,7 +678,12 @@ export function ChatView() {
   const [topicSearch, setTopicSearch] = useState('');
   const [aiMode, setAIMode] = useState<AIMode>('balanced');
   const [showAIModeMenu, setShowAIModeMenu] = useState(false);
-  const [sessionStartTime, setSessionStartTime] = useState(0);
+
+  // SSR-safe: mounted detection for client-only values
+  const mounted = useMounted();
+
+  // SSR-safe: Session start time computed only after mount via useMemo
+  const sessionStartTime = useMemo(() => mounted ? Date.now() : 0, [mounted]);
   const [sessionElapsed, setSessionElapsed] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const aiModeRef = useRef<HTMLDivElement>(null);
@@ -685,8 +691,15 @@ export function ChatView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Conversation history state (SSR-safe: initialized empty, populated after mount)
+  // Conversation history state (SSR-safe: initialized empty, populated via useMemo after mount)
+  const initialConversations = useMemo(() => mounted ? createInitialConversations() : [], [mounted]);
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  // Sync initial conversations once mounted
+  useEffect(() => {
+    if (mounted && conversations.length === 0) {
+      setConversations(initialConversations);
+    }
+  }, [mounted, initialConversations, conversations.length]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>('conv-1');
 
   // File attachment state
@@ -753,12 +766,6 @@ export function ChatView() {
     setCharCount(cmd.prompt.length);
     setShowSlashMenu(false);
     setSlashFilter('');
-  }, []);
-
-  // SSR-safe: Populate conversations and session start time after mount
-  useEffect(() => {
-    setConversations(createInitialConversations());
-    setSessionStartTime(Date.now());
   }, []);
 
   // Close slash menu on outside click
