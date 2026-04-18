@@ -179,17 +179,21 @@ interface ConversationItem {
   messageCount: number;
 }
 
-const INITIAL_CONVERSATIONS: ConversationItem[] = [
-  { id: 'conv-1', title: 'Vercel deployment 502 error', preview: 'How do I fix the 502 error on my Vercel deployment?', timestamp: new Date(), messageCount: 8 },
-  { id: 'conv-2', title: 'GitHub Actions workflow', preview: 'Help me optimize my CI/CD pipeline for faster builds', timestamp: new Date(), messageCount: 12 },
-  { id: 'conv-3', title: 'Docker compose setup', preview: 'What is the best way to set up Docker Compose for dev?', timestamp: new Date(Date.now() - 86400000), messageCount: 6 },
-  { id: 'conv-4', title: 'Railway vs Render comparison', preview: 'Which platform is better for a small Next.js app?', timestamp: new Date(Date.now() - 86400000), messageCount: 4 },
-  { id: 'conv-5', title: 'Custom domain with SSL', preview: 'How to configure a custom domain with HTTPS?', timestamp: new Date(Date.now() - 3 * 86400000), messageCount: 5 },
-  { id: 'conv-6', title: 'Blue-green deployment strategy', preview: 'Explain blue-green deployments for zero-downtime', timestamp: new Date(Date.now() - 3 * 86400000), messageCount: 7 },
-  { id: 'conv-7', title: 'Kubernetes pod autoscaling', preview: 'How to configure HPA for my K8s cluster?', timestamp: new Date(Date.now() - 7 * 86400000), messageCount: 10 },
-  { id: 'conv-8', title: 'Environment variable management', preview: 'Best practices for managing env vars across environments', timestamp: new Date(Date.now() - 14 * 86400000), messageCount: 3 },
-  { id: 'conv-9', title: 'Monitoring with Grafana', preview: 'Set up Grafana dashboards for deployment monitoring', timestamp: new Date(Date.now() - 30 * 86400000), messageCount: 9 },
-];
+// SSR-safe: Factory function creates conversations only on the client after mount
+function createInitialConversations(): ConversationItem[] {
+  const now = Date.now();
+  return [
+    { id: 'conv-1', title: 'Vercel deployment 502 error', preview: 'How do I fix the 502 error on my Vercel deployment?', timestamp: new Date(now), messageCount: 8 },
+    { id: 'conv-2', title: 'GitHub Actions workflow', preview: 'Help me optimize my CI/CD pipeline for faster builds', timestamp: new Date(now), messageCount: 12 },
+    { id: 'conv-3', title: 'Docker compose setup', preview: 'What is the best way to set up Docker Compose for dev?', timestamp: new Date(now - 86400000), messageCount: 6 },
+    { id: 'conv-4', title: 'Railway vs Render comparison', preview: 'Which platform is better for a small Next.js app?', timestamp: new Date(now - 86400000), messageCount: 4 },
+    { id: 'conv-5', title: 'Custom domain with SSL', preview: 'How to configure a custom domain with HTTPS?', timestamp: new Date(now - 3 * 86400000), messageCount: 5 },
+    { id: 'conv-6', title: 'Blue-green deployment strategy', preview: 'Explain blue-green deployments for zero-downtime', timestamp: new Date(now - 3 * 86400000), messageCount: 7 },
+    { id: 'conv-7', title: 'Kubernetes pod autoscaling', preview: 'How to configure HPA for my K8s cluster?', timestamp: new Date(now - 7 * 86400000), messageCount: 10 },
+    { id: 'conv-8', title: 'Environment variable management', preview: 'Best practices for managing env vars across environments', timestamp: new Date(now - 14 * 86400000), messageCount: 3 },
+    { id: 'conv-9', title: 'Monitoring with Grafana', preview: 'Set up Grafana dashboards for deployment monitoring', timestamp: new Date(now - 30 * 86400000), messageCount: 9 },
+  ];
+}
 
 function getDateGroup(date: Date): string {
   const now = new Date();
@@ -673,7 +677,7 @@ export function ChatView() {
   const [topicSearch, setTopicSearch] = useState('');
   const [aiMode, setAIMode] = useState<AIMode>('balanced');
   const [showAIModeMenu, setShowAIModeMenu] = useState(false);
-  const [sessionStartTime] = useState(Date.now());
+  const [sessionStartTime, setSessionStartTime] = useState(0);
   const [sessionElapsed, setSessionElapsed] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const aiModeRef = useRef<HTMLDivElement>(null);
@@ -681,8 +685,8 @@ export function ChatView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Conversation history state
-  const [conversations, setConversations] = useState<ConversationItem[]>(INITIAL_CONVERSATIONS);
+  // Conversation history state (SSR-safe: initialized empty, populated after mount)
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>('conv-1');
 
   // File attachment state
@@ -751,6 +755,12 @@ export function ChatView() {
     setSlashFilter('');
   }, []);
 
+  // SSR-safe: Populate conversations and session start time after mount
+  useEffect(() => {
+    setConversations(createInitialConversations());
+    setSessionStartTime(Date.now());
+  }, []);
+
   // Close slash menu on outside click
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -764,6 +774,7 @@ export function ChatView() {
 
   // Session timer
   useEffect(() => {
+    if (sessionStartTime === 0) return;
     const interval = setInterval(() => {
       setSessionElapsed(Math.floor((Date.now() - sessionStartTime) / 1000));
     }, 1000);
@@ -1849,7 +1860,7 @@ export function ChatView() {
                               className="h-2.5 rounded"
                               style={{ backgroundColor: '#21262d' }}
                               initial={{ width: '0%' }}
-                              animate={{ width: `${40 + Math.random() * 50}%` }}
+                              animate={{ width: `${[55, 70, 45][i]}%` }}
                               transition={{ delay: i * 0.3, duration: 0.5, repeat: Infinity, repeatType: 'reverse' }}
                             />
                           ))}
@@ -2293,10 +2304,10 @@ export function ChatView() {
                           className="w-1 rounded-full"
                           style={{ backgroundColor: '#f85149' }}
                           animate={{
-                            height: [4, 12 + Math.random() * 8, 4],
+                            height: [4, [16, 14, 18, 12, 17, 15, 13][i], 4],
                           }}
                           transition={{
-                            duration: 0.4 + Math.random() * 0.3,
+                            duration: [0.5, 0.55, 0.45, 0.6, 0.48, 0.52, 0.58][i],
                             repeat: Infinity,
                             delay: i * 0.08,
                             ease: 'easeInOut',

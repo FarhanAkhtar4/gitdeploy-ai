@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,88 +32,92 @@ interface DeploymentRecord {
   logSummary: string;
 }
 
-const MOCK_DEPLOYMENTS: DeploymentRecord[] = [
-  {
-    id: 'dep-1',
-    project: 'Invoice Manager',
-    status: 'success',
-    commitMessage: 'feat: add PDF export for invoices',
-    triggeredBy: 'Manual — @alex',
-    triggeredAt: new Date(Date.now() - 1800000).toISOString(),
-    duration: '2m 34s',
-    logSummary: 'Build completed. 12 files uploaded. GitHub Actions workflow #45 passed all checks.',
-  },
-  {
-    id: 'dep-2',
-    project: 'Task Manager',
-    status: 'success',
-    commitMessage: 'fix: resolve drag-and-drop bug on mobile',
-    triggeredBy: 'Scheduled — Daily 9AM',
-    triggeredAt: new Date(Date.now() - 7200000).toISOString(),
-    duration: '1m 58s',
-    logSummary: 'Auto-deploy triggered. All tests passed. Deployed to production.',
-  },
-  {
-    id: 'dep-3',
-    project: 'Chat Application',
-    status: 'failed',
-    commitMessage: 'feat: add file sharing support',
-    triggeredBy: 'Manual — @sarah',
-    triggeredAt: new Date(Date.now() - 14400000).toISOString(),
-    duration: '4m 12s',
-    logSummary: 'Build step failed: TypeScript compilation error in src/components/FileUpload.tsx line 42.',
-  },
-  {
-    id: 'dep-4',
-    project: 'Analytics Dashboard',
-    status: 'success',
-    commitMessage: 'chore: update dependencies',
-    triggeredBy: 'Manual — @alex',
-    triggeredAt: new Date(Date.now() - 28800000).toISOString(),
-    duration: '3m 05s',
-    logSummary: 'Dependency updates applied. No breaking changes detected. All checks passed.',
-  },
-  {
-    id: 'dep-5',
-    project: 'Blog CMS',
-    status: 'failed',
-    commitMessage: 'feat: add markdown preview',
-    triggeredBy: 'Manual — @mike',
-    triggeredAt: new Date(Date.now() - 43200000).toISOString(),
-    duration: '1m 22s',
-    logSummary: 'Lint check failed: 3 ESLint errors in markdown-editor component.',
-  },
-  {
-    id: 'dep-6',
-    project: 'Food Delivery API',
-    status: 'success',
-    commitMessage: 'feat: add delivery tracking endpoint',
-    triggeredBy: 'Scheduled — Every 6h',
-    triggeredAt: new Date(Date.now() - 86400000).toISOString(),
-    duration: '1m 45s',
-    logSummary: 'API endpoints deployed. Health check passed. Response time < 200ms.',
-  },
-  {
-    id: 'dep-7',
-    project: 'Invoice Manager',
-    status: 'success',
-    commitMessage: 'fix: correct tax calculation for EU',
-    triggeredBy: 'Manual — @alex',
-    triggeredAt: new Date(Date.now() - 172800000).toISOString(),
-    duration: '2m 10s',
-    logSummary: 'Tax logic updated. All integration tests passed. Deployed successfully.',
-  },
-  {
-    id: 'dep-8',
-    project: 'Task Manager',
-    status: 'pending',
-    commitMessage: 'feat: add team workspaces',
-    triggeredBy: 'Manual — @sarah',
-    triggeredAt: new Date(Date.now() - 60000).toISOString(),
-    duration: 'In progress...',
-    logSummary: 'Build started. Awaiting GitHub Actions workflow completion.',
-  },
-];
+// SSR-safe: Factory function creates mock data only on the client after mount
+function createMockDeployments(): DeploymentRecord[] {
+  const now = Date.now();
+  return [
+    {
+      id: 'dep-1',
+      project: 'Invoice Manager',
+      status: 'success',
+      commitMessage: 'feat: add PDF export for invoices',
+      triggeredBy: 'Manual — @alex',
+      triggeredAt: new Date(now - 1800000).toISOString(),
+      duration: '2m 34s',
+      logSummary: 'Build completed. 12 files uploaded. GitHub Actions workflow #45 passed all checks.',
+    },
+    {
+      id: 'dep-2',
+      project: 'Task Manager',
+      status: 'success',
+      commitMessage: 'fix: resolve drag-and-drop bug on mobile',
+      triggeredBy: 'Scheduled — Daily 9AM',
+      triggeredAt: new Date(now - 7200000).toISOString(),
+      duration: '1m 58s',
+      logSummary: 'Auto-deploy triggered. All tests passed. Deployed to production.',
+    },
+    {
+      id: 'dep-3',
+      project: 'Chat Application',
+      status: 'failed',
+      commitMessage: 'feat: add file sharing support',
+      triggeredBy: 'Manual — @sarah',
+      triggeredAt: new Date(now - 14400000).toISOString(),
+      duration: '4m 12s',
+      logSummary: 'Build step failed: TypeScript compilation error in src/components/FileUpload.tsx line 42.',
+    },
+    {
+      id: 'dep-4',
+      project: 'Analytics Dashboard',
+      status: 'success',
+      commitMessage: 'chore: update dependencies',
+      triggeredBy: 'Manual — @alex',
+      triggeredAt: new Date(now - 28800000).toISOString(),
+      duration: '3m 05s',
+      logSummary: 'Dependency updates applied. No breaking changes detected. All checks passed.',
+    },
+    {
+      id: 'dep-5',
+      project: 'Blog CMS',
+      status: 'failed',
+      commitMessage: 'feat: add markdown preview',
+      triggeredBy: 'Manual — @mike',
+      triggeredAt: new Date(now - 43200000).toISOString(),
+      duration: '1m 22s',
+      logSummary: 'Lint check failed: 3 ESLint errors in markdown-editor component.',
+    },
+    {
+      id: 'dep-6',
+      project: 'Food Delivery API',
+      status: 'success',
+      commitMessage: 'feat: add delivery tracking endpoint',
+      triggeredBy: 'Scheduled — Every 6h',
+      triggeredAt: new Date(now - 86400000).toISOString(),
+      duration: '1m 45s',
+      logSummary: 'API endpoints deployed. Health check passed. Response time < 200ms.',
+    },
+    {
+      id: 'dep-7',
+      project: 'Invoice Manager',
+      status: 'success',
+      commitMessage: 'fix: correct tax calculation for EU',
+      triggeredBy: 'Manual — @alex',
+      triggeredAt: new Date(now - 172800000).toISOString(),
+      duration: '2m 10s',
+      logSummary: 'Tax logic updated. All integration tests passed. Deployed successfully.',
+    },
+    {
+      id: 'dep-8',
+      project: 'Task Manager',
+      status: 'pending',
+      commitMessage: 'feat: add team workspaces',
+      triggeredBy: 'Manual — @sarah',
+      triggeredAt: new Date(now - 60000).toISOString(),
+      duration: 'In progress...',
+      logSummary: 'Build started. Awaiting GitHub Actions workflow completion.',
+    },
+  ];
+}
 
 type StatusFilter = 'all' | 'success' | 'failed' | 'pending';
 
@@ -151,17 +155,25 @@ const STATUS_CONFIG = {
 export function DeploymentHistory() {
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deployments, setDeployments] = useState<DeploymentRecord[]>([]);
+
+  // SSR-safe: Populate deployments after mount
+  useEffect(() => {
+    setDeployments(createMockDeployments());
+  }, []);
 
   const filtered = filter === 'all'
-    ? MOCK_DEPLOYMENTS
-    : MOCK_DEPLOYMENTS.filter((d) => d.status === filter);
+    ? deployments
+    : deployments.filter((d) => d.status === filter);
 
   const counts = {
-    all: MOCK_DEPLOYMENTS.length,
-    success: MOCK_DEPLOYMENTS.filter((d) => d.status === 'success').length,
-    failed: MOCK_DEPLOYMENTS.filter((d) => d.status === 'failed').length,
-    pending: MOCK_DEPLOYMENTS.filter((d) => d.status === 'pending').length,
+    all: deployments.length,
+    success: deployments.filter((d) => d.status === 'success').length,
+    failed: deployments.filter((d) => d.status === 'failed').length,
+    pending: deployments.filter((d) => d.status === 'pending').length,
   };
+
+  if (deployments.length === 0) return null;
 
   return (
     <Card style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
@@ -172,7 +184,7 @@ export function DeploymentHistory() {
             Deployment History
           </CardTitle>
           <Badge variant="outline" className="text-[10px] h-5 px-1.5" style={{ borderColor: '#30363d', color: '#8b949e' }}>
-            {MOCK_DEPLOYMENTS.length} total
+            {deployments.length} total
           </Badge>
         </div>
         {/* Filter tabs */}

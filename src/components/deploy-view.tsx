@@ -163,17 +163,34 @@ const ENV_VAR_SETS: Record<Environment, Array<{ key: string; value: string; isSe
   ],
 };
 
-// Confetti particles component
+// Confetti particles component (SSR-safe: particles generated only after mount)
+interface ParticleConfig {
+  id: number;
+  left: string;
+  delay: string;
+  size: number;
+  color: string;
+  duration: number;
+  shape: 'circle' | 'rect';
+}
+
 function ConfettiParticles() {
-  const particles = useMemo(() => Array.from({ length: 40 }, (_, i) => ({
-    id: i,
-    left: `${Math.random() * 100}%`,
-    delay: `${Math.random() * 1.5}s`,
-    size: 4 + Math.random() * 8,
-    color: ['#3fb950', '#58a6ff', '#e3b341', '#56d364', '#a371f7', '#f85149'][Math.floor(Math.random() * 6)],
-    duration: 1.5 + Math.random() * 1.5,
-    shape: Math.random() > 0.5 ? 'circle' : 'rect',
-  })), []);
+  const [particles, setParticles] = useState<ParticleConfig[]>([]);
+
+  useEffect(() => {
+    const colors = ['#3fb950', '#58a6ff', '#e3b341', '#56d364', '#a371f7', '#f85149'];
+    setParticles(Array.from({ length: 40 }, (_, i) => ({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      delay: `${Math.random() * 1.5}s`,
+      size: 4 + Math.random() * 8,
+      color: colors[Math.floor(Math.random() * 6)],
+      duration: 1.5 + Math.random() * 1.5,
+      shape: Math.random() > 0.5 ? 'circle' as const : 'rect' as const,
+    })));
+  }, []);
+
+  if (particles.length === 0) return null;
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">

@@ -109,23 +109,6 @@ const staggerItem = {
 };
 
 /* ============================================================
-   Helper: Time-of-day greeting
-   ============================================================ */
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good Morning';
-  if (hour < 18) return 'Good Afternoon';
-  return 'Good Evening';
-}
-
-function getGreetingEmoji(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return '\uD83C\uDF05';  // 🌅 sunrise
-  if (hour < 18) return '\u2600\uFE0F';  // ☀️ sun
-  return '\uD83C\uDF19';  // 🌙 moon
-}
-
-/* ============================================================
    Relative Time Helper
    ============================================================ */
 function getRelativeTime(timeStr: string): string {

@@ -1188,13 +1188,13 @@ export function SettingsView() {
                 className="w-32 h-32 mx-auto rounded-lg flex items-center justify-center relative overflow-hidden"
                 style={{ backgroundColor: '#c9d1d9', border: '2px solid #30363d' }}
               >
-                {/* QR Code Grid Pattern */}
+                {/* QR Code Grid Pattern (deterministic for SSR safety) */}
                 <div className="grid grid-cols-8 gap-px p-2 w-full h-full" style={{ backgroundColor: '#c9d1d9' }}>
                   {Array.from({ length: 64 }).map((_, idx) => (
                     <div
                       key={idx}
                       style={{
-                        backgroundColor: Math.random() > 0.4 ? '#0d1117' : '#c9d1d9',
+                        backgroundColor: ((idx * 7 + 3) % 5 > 1) ? '#0d1117' : '#c9d1d9',
                         borderRadius: '1px',
                       }}
                     />

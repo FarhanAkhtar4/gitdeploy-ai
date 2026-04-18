@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { useAppStore, type Notification } from '@/store/app-store';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -101,6 +101,10 @@ export function NotificationsPanel() {
   const [snoozedIds, setSnoozedIds] = useState<Set<string>>(new Set());
   const [snoozeMenuId, setSnoozeMenuId] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Today', 'Yesterday']));
+  const [mounted, setMounted] = useState(false);
+
+  // SSR-safe: Only compute time-dependent values after mount
+  useEffect(() => { setMounted(true); }, []);
 
   // Enhance notifications with priority and filter out snoozed
   const enhancedNotifications = useMemo(() => {
@@ -116,7 +120,7 @@ export function NotificationsPanel() {
 
   const unreadCount = enhancedNotifications.filter((n) => !n.read).length;
 
-  const groups = useMemo(() => groupNotifications(enhancedNotifications), [enhancedNotifications]);
+  const groups = useMemo(() => mounted ? groupNotifications(enhancedNotifications) : [], [enhancedNotifications, mounted]);
 
   const toggleGroup = (label: string) => {
     setExpandedGroups(prev => {
@@ -351,7 +355,7 @@ export function NotificationsPanel() {
                                 </p>
                                 <div className="flex items-center gap-2 mt-1">
                                   <p className="text-[10px]" style={{ color: '#484f58' }}>
-                                    {formatTimeAgo(notification.timestamp)}
+                                    {mounted ? formatTimeAgo(notification.timestamp) : '...'}
                                   </p>
                                   {notification.priority !== 'urgent' && (
                                     <span
