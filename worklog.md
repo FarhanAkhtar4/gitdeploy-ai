@@ -1636,3 +1636,50 @@ Stage Summary:
 3. Seed database with demo user and projects
 4. Improve accessibility (DialogTitle for CommandDialog, ARIA labels)
 5. Add WebSocket reconnection logic in deploy view
+
+---
+Task ID: 12
+Agent: main (Cloudflare Pages + Workers Optimization)
+Task: Optimize GitDeploy AI for Cloudflare deployment with Edge Runtime compatibility
+
+Work Log:
+- Installed @cloudflare/next-on-pages adapter, wrangler, @cloudflare/workers-types
+- Installed @prisma/adapter-libsql + @libsql/client for Edge-compatible database
+- Created wrangler.toml with KV, R2, D1 namespace configuration
+- Updated next.config.ts for Cloudflare Pages compatibility (unoptimized images, serverExternalPackages)
+- Rewrote src/lib/db.ts: Dual-mode Prisma client (SQLite local / Turso libSQL Edge)
+- Rewrote src/lib/encryption.ts: Web Crypto API for Edge + Node.js crypto dynamic import fallback
+- Created src/lib/sse.ts: Server-Sent Events service replacing Socket.io for Edge compatibility
+- Created src/lib/cache.ts: Cloudflare KV caching layer with in-memory fallback for local dev
+- Created src/lib/cloudflare-env.d.ts: Type definitions for KV, R2, D1 bindings
+- Created src/app/api/deploy/logs/route.ts: SSE endpoint for real-time deployment logs
+- Added 'export const runtime = edge' to all 11 API routes
+- Updated all encrypt/decrypt calls to use await (now async for Web Crypto API)
+- Added Cloudflare deploy scripts to package.json (cf:build, cf:preview, cf:deploy, cf:dev)
+- Updated hosting API to use edge caching (5-minute TTL)
+- All lint checks pass with zero errors
+- All views render correctly with zero runtime errors
+- Pushed to GitHub
+
+Stage Summary:
+- Project is now fully optimized for Cloudflare Pages + Workers deployment
+- All API routes run on Edge Runtime
+- Database supports both local SQLite and Turso/libSQL (Edge)
+- Encryption uses Web Crypto API (Edge-compatible)
+- Real-time streaming via SSE (Edge-compatible, no WebSocket server needed)
+- Edge caching via Cloudflare KV with in-memory fallback
+- Total monthly cost on Cloudflare: $0 (free tier covers everything)
+
+## Cloudflare Deployment Architecture
+- Frontend + API: Cloudflare Pages (free: unlimited bandwidth, 500 builds/mo)
+- Database: Turso (free: 9GB storage, 500 databases, 1B row reads)
+- Caching: Cloudflare KV (free: 100K reads/day, 1K writes/day)
+- File Storage: Cloudflare R2 (free: 10GB, 1M ops/mo, no egress fees)
+- Real-time: SSE (no server needed, runs on Edge)
+- Cron: Cloudflare Workers Cron Triggers (free: 5 triggers)
+
+## Deploy Commands
+- bun run cf:build — Build for Cloudflare
+- bun run cf:preview — Local preview with Wrangler
+- bun run cf:deploy — Build + deploy to Cloudflare Pages
+- bun run cf:dev — Dev server with Wrangler
