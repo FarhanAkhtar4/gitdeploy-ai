@@ -1,12 +1,12 @@
-# Cloudflare Workers/Pages Configuration for GitDeploy AI
+# Cloudflare Pages Configuration for GitDeploy AI
 # Docs: https://developers.cloudflare.com/pages/functions/wrangler-configuration/
 
-name = "gitdeploy-ai"
+name = "gitdeploy-ai-app"
 compatibility_date = "2025-04-18"
 compatibility_flags = ["nodejs_compat"]
 
-# ─── Pages Project ───
-# Deploy with: npx wrangler pages deploy .vercel/output/static
+# ─── Pages Build Output (required for wrangler deploy) ───
+pages_build_output_dir = ".vercel/output/static"
 
 # ─── Environment Variables ───
 [vars]
@@ -31,9 +31,10 @@ NODE_ENV = "production"
 # database_name = "gitdeploy-db"
 # database_id = "<your-d1-database-id>"
 
-# ─── Secrets (set via: npx wrangler secret put <KEY>) ───
+# ─── Secrets (set via: npx wrangler pages secret put <KEY> --project-name=gitdeploy-ai-app) ───
 # ENCRYPTION_KEY
 # DATABASE_URL (Turso connection string)
+# DATABASE_AUTH_TOKEN
 # GITHUB_TOKEN
 # NEXTAUTH_SECRET
 # Z_AI_API_KEY

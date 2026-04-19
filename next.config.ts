@@ -1,10 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* Cloudflare Pages compatibility */
-  output: "standalone",
+  /* Cloudflare Pages: Do NOT use output: "standalone" — next-on-pages handles output */
+  /* output: "standalone" conflicts with @cloudflare/next-on-pages */
 
-  /* Skip TypeScript errors during build ( Cloudflare build speed) */
+  /* Skip TypeScript errors during build (Cloudflare build speed) */
   typescript: {
     ignoreBuildErrors: true,
   },

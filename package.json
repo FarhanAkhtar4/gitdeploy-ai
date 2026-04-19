@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
-    "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
-    "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
+    "build": "next build",
+    "start": "NODE_ENV=production next start",
     "lint": "eslint .",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
@@ -13,8 +13,10 @@
     "db:reset": "prisma migrate reset",
     "cf:build": "npx @cloudflare/next-on-pages",
     "cf:preview": "npx wrangler pages dev .vercel/output/static --compatibility-flags=nodejs_compat",
-    "cf:deploy": "npx @cloudflare/next-on-pages && npx wrangler pages deploy .vercel/output/static",
-    "cf:dev": "npx wrangler pages dev --compatibility-flags=nodejs_compat -- bun run dev"
+    "cf:deploy": "npx @cloudflare/next-on-pages && npx wrangler pages deploy .vercel/output/static --project-name=gitdeploy-ai-app",
+    "cf:dev": "npx wrangler pages dev --compatibility-flags=nodejs_compat -- bun run dev",
+    "pages:build": "npx @cloudflare/next-on-pages",
+    "pages:deploy": "npx @cloudflare/next-on-pages && npx wrangler pages deploy .vercel/output/static --project-name=gitdeploy-ai-app"
   },
   "dependencies": {
     "@cloudflare/next-on-pages": "^1.13.16",
