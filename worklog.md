@@ -1683,3 +1683,22 @@ Stage Summary:
 - bun run cf:preview — Local preview with Wrangler
 - bun run cf:deploy — Build + deploy to Cloudflare Pages
 - bun run cf:dev — Dev server with Wrangler
+
+---
+Task ID: 11
+Agent: main (PrismaLibSQL Build Error Fix)
+Task: Fix build error: Export PrismaLibSQL doesn't exist in target module
+
+Work Log:
+- Identified the error: `PrismaLibSQL` import doesn't exist in `@prisma/adapter-libsql` — the correct export is `PrismaLibSql` (lowercase 'q' in 'Sql')
+- Fixed import in `/src/lib/db.ts` line 13: `PrismaLibSQL` → `PrismaLibSql`
+- Fixed usage in `/src/lib/db.ts` line 33: `new PrismaLibSQL(libsql)` → `new PrismaLibSql(libsql)`
+- Verified fix: API `/api/projects/list` now returns 401 (auth required) instead of 500 (build error)
+- Verified homepage returns 200
+- Lint passes with zero errors
+
+Stage Summary:
+- Build error resolved — case sensitivity issue in Prisma adapter import
+- `PrismaLibSQL` → `PrismaLibSql` (2 changes in db.ts)
+- API routes now compile successfully on Edge runtime
+- No other files referenced the incorrect export name
