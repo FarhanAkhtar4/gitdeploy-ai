@@ -1594,7 +1594,7 @@ export function DeployView() {
                         style={{ borderColor: '#30363d', color: '#8b949e' }}
                         onClick={() => {
                           setWebhooks(prev => [...prev, {
-                            id: `wh${Date.now()}`,
+                            id: `wh-${crypto.randomUUID()}`,
                             type: 'slack',
                             url: '',
                             label: 'New Webhook',

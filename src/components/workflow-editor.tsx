@@ -209,7 +209,7 @@ export function WorkflowEditor({ onClose }: { onClose?: () => void }) {
   const addStep = useCallback((type: string) => {
     const stepType = getStepType(type);
     const newStep: WorkflowStep = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       name: stepType.name,
       type: stepType.type,
       icon: stepType.icon,

@@ -115,8 +115,17 @@ export function OnboardingWizard() {
 
       setTokenScopes(data.github.scopes);
       setIsGithubConnected(true);
+
+      if (typeof window !== 'undefined' && data.user?.id) {
+        localStorage.setItem('gitdeploy_user_id', data.user.id);
+      }
+
       setStep(4);
       setShowCelebration(true);
+
+      setTimeout(() => {
+        setCurrentView('dashboard');
+      }, 2500);
 
       toast({
         title: 'GitHub Connected!',

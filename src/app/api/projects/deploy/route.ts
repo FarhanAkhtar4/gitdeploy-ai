@@ -40,7 +40,6 @@ export async function POST(request: NextRequest) {
     }
 
     const token = await decrypt(credential.encrypted_token, credential.iv, credential.auth_tag);
-    const owner = credential.scopes; // We need to get the owner from the user
     const user = await db.user.findUnique({ where: { id: userId } });
     const githubOwner = user?.github_username;
 
@@ -92,6 +91,7 @@ export async function POST(request: NextRequest) {
     const uploadErrors: string[] = [];
 
     for (const file of project.files) {
+      if (file.file_path.includes('.github/workflows/')) continue;
       try {
         // Check if file exists to get SHA
         let sha: string | undefined;
@@ -119,6 +119,25 @@ export async function POST(request: NextRequest) {
         const errMsg = error instanceof Error ? error.message : 'Unknown error';
         uploadErrors.push(`${file.file_path}: ${errMsg}`);
       }
+    }
+
+    if (uploadedCount === 0 && totalFiles > 0) {
+      await db.deployment.update({
+        where: { id: deployment.id },
+        data: {
+          status: 'failed',
+          completed_at: new Date(),
+          error_message: `All ${totalFiles} file uploads failed:\n${uploadErrors.join('\n')}`,
+        },
+      });
+      await db.project.update({
+        where: { id: projectId },
+        data: { status: 'failed' },
+      });
+      return NextResponse.json(
+        { error: 'Deployment failed: no files uploaded.', uploadErrors },
+        { status: 500 }
+      );
     }
 
     // STEP D3 — Workflow Deployment
@@ -163,7 +182,8 @@ export async function POST(request: NextRequest) {
         workflowDispatched = true;
       }
     } catch (error) {
-      console.error('Workflow dispatch error:', error);
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      uploadErrors.push(`Workflow dispatch failed: ${msg}`);
     }
 
     // Update deployment

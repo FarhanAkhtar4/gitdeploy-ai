@@ -621,7 +621,7 @@ export function BuilderView() {
     if (!message.trim() || isLoading) return;
 
     const userMsg: ChatMessage = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       role: 'user',
       content: message.trim(),
       timestamp: new Date().toISOString(),
@@ -650,7 +650,7 @@ export function BuilderView() {
       const aiContent = data.response || 'Sorry, I could not generate a response.';
 
       const assistantMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+        id: crypto.randomUUID(),
         role: 'assistant',
         content: aiContent,
         timestamp: new Date().toISOString(),
@@ -691,7 +691,7 @@ export function BuilderView() {
       }
     } catch (error) {
       const errorMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+        id: crypto.randomUUID(),
         role: 'assistant',
         content: '⚠️ Error: Could not reach AI service. Please try again.',
         timestamp: new Date().toISOString(),
@@ -966,70 +966,33 @@ export function BuilderView() {
             <ScrollArea className="flex-1 p-4">
               <div className="space-y-4 max-w-3xl mx-auto">
                 {builderChat.length === 0 && (
-                  /* ─── Better Empty State ─── */
-                  <div className="text-center py-10">
-                    <motion.div
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ duration: 0.5, type: 'spring' }}
-                      className="relative w-20 h-20 rounded-2xl mx-auto flex items-center justify-center mb-5"
-                      style={{ backgroundColor: '#58a6ff10' }}
-                    >
-                      <Sparkles className="w-10 h-10 animate-sparkle" style={{ color: '#58a6ff' }} />
-                      <div
-                        className="absolute inset-[-4px] rounded-2xl animate-pulse-ring"
-                        style={{
-                          border: '2px solid transparent',
-                          backgroundImage: 'linear-gradient(#161b22, #161b22), linear-gradient(135deg, #58a6ff, #3fb950, #e3b341)',
-                          backgroundOrigin: 'border-box',
-                          backgroundClip: 'padding-box, border-box',
-                        }}
-                      />
-                    </motion.div>
-
-                    <h3
-                      className="text-xl font-bold mb-2"
-                      style={{
-                        backgroundImage: 'linear-gradient(135deg, #58a6ff, #3fb950)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                      }}
-                    >
+                  <div className="flex flex-col items-center justify-center h-full text-center px-6 py-12">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+                         style={{ background: 'linear-gradient(135deg, rgba(88,166,255,0.2), rgba(63,185,80,0.1))',
+                                  border: '1px solid rgba(88,166,255,0.2)' }}>
+                      <Bot className="w-7 h-7" style={{ color: '#58a6ff' }} />
+                    </div>
+                    <h3 className="text-base font-semibold mb-2" style={{ color: '#c9d1d9' }}>
                       Describe your project
                     </h3>
-                    <p className="text-sm max-w-md mx-auto" style={{ color: '#8b949e' }}>
-                      Tell me what you want to build and I&apos;ll create the complete codebase for you
+                    <p className="text-sm mb-6" style={{ color: '#8b949e' }}>
+                      Tell the AI what you want to build. Be as detailed or as brief as you like.
                     </p>
-
-                    <div className="grid grid-cols-2 gap-2 max-w-lg mx-auto mt-6">
-                      {EXAMPLE_PROMPTS.map((example, i) => (
-                        <motion.button
-                          key={example.text}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.3 + i * 0.1, duration: 0.3 }}
-                          className="flex items-start gap-2.5 text-left px-3 py-3 rounded-xl border transition-all duration-200 hover:bg-[#21262d] hover:border-[#58a6ff] hover:-translate-y-0.5 group"
-                          style={{ borderColor: '#30363d', backgroundColor: '#0d1117' }}
-                          onClick={() => sendMessage(example.text)}
-                        >
-                          <span className="text-lg shrink-0 mt-0.5">{example.icon}</span>
-                          <div>
-                            <p className="text-xs font-medium" style={{ color: '#c9d1d9' }}>{example.title}</p>
-                            <p className="text-[10px] mt-0.5" style={{ color: '#8b949e' }}>{example.desc}</p>
-                          </div>
-                        </motion.button>
+                    <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
+                      {[
+                        { icon: '🧾', title: 'Invoice SaaS', text: 'Build a SaaS invoice management app with Stripe integration and PDF export' },
+                        { icon: '✅', title: 'Task Manager', text: 'Build a full-stack kanban task manager with real-time sync and user auth' },
+                        { icon: '📊', title: 'Analytics Dashboard', text: 'Build a real-time analytics dashboard with charts and API backend' },
+                        { icon: '🍕', title: 'Food Delivery API', text: 'Build a REST API for a food delivery app with order tracking and admin panel' },
+                      ].map(p => (
+                        <button key={p.title} onClick={() => sendMessage(p.text)}
+                          className="text-xs text-left p-3 rounded-lg transition-colors hover:border-opacity-50"
+                          style={{ backgroundColor: '#21262d', color: '#8b949e',
+                                   border: '1px solid #30363d' }}>
+                          <span className="mr-1">{p.icon}</span> {p.title}
+                        </button>
                       ))}
                     </div>
-
-                    <button
-                      className="mt-4 text-xs flex items-center gap-1.5 mx-auto transition-colors hover:text-[#58a6ff]"
-                      style={{ color: '#8b949e' }}
-                      onClick={() => setActiveTab('templates')}
-                    >
-                      <LayoutTemplate className="w-3.5 h-3.5" />
-                      Or try a template
-                    </button>
                   </div>
                 )}
 

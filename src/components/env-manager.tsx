@@ -113,7 +113,7 @@ export function EnvManager() {
     }
 
     const isRequired = REQUIRED_VARS.includes(upperKey);
-    setVars([...vars, { id: Date.now().toString(), key: upperKey, value: newValue, revealed: false, required: isRequired }]);
+    setVars([...vars, { id: crypto.randomUUID(), key: upperKey, value: newValue, revealed: false, required: isRequired }]);
     setNewKey('');
     setNewValue('');
     toast({ title: 'Variable added', description: `${upperKey} has been added` });
@@ -196,7 +196,7 @@ export function EnvManager() {
         continue;
       }
       parsed.push({
-        id: Date.now().toString() + Math.random().toString(36).slice(2, 8),
+        id: crypto.randomUUID(),
         key,
         value,
         revealed: false,

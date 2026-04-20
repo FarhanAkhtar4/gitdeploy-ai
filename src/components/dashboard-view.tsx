@@ -61,7 +61,6 @@ import {
   LayoutGrid,
   List,
   TrendingUp,
-  TrendingDown,
   ExternalLink,
   ArrowUp,
   ArrowDown,
@@ -69,7 +68,6 @@ import {
   X,
   Wifi,
   CalendarDays,
-  Users,
   Star,
   GitPullRequest,
   Terminal,
@@ -587,7 +585,7 @@ function ActivitySkeleton() {
    Dashboard View (Main Component)
    ============================================================ */
 export function DashboardView() {
-  const { projects, setProjects, user, setCurrentView, setSelectedProject, setIsLoading, isGithubConnected } = useAppStore();
+  const { projects, setProjects, user, setCurrentView, setSelectedProject, setIsLoading, isGithubConnected, chatMessages, builderChat } = useAppStore();
   const [loading, setLoading] = useState(true);
 
   /* ----- Greeting State (SSR-safe: computed only after mount) ----- */
@@ -628,43 +626,40 @@ export function DashboardView() {
         headers: { 'x-user-id': user.id },
       });
       const data = await res.json();
-      if (data.projects && data.projects.length > 0) {
-        setProjects(
-          data.projects.map((p: Record<string, unknown>) => ({
-            id: p.id as string,
-            name: p.name as string,
-            description: p.description as string,
-            githubRepoUrl: p.github_repo_url as string | null,
-            liveUrl: p.live_url as string | null,
-            framework: p.framework as string,
-            stackJson: p.stack_json as string,
-            defaultBranch: p.default_branch as string,
-            status: (p.status as ProjectStatus) || 'not_deployed',
-            createdAt: p.created_at as string,
-            updatedAt: p.updated_at as string,
-            files: (p.files as Array<Record<string, unknown>>)?.map((f) => ({
-              id: f.id as string,
-              filePath: f.file_path as string,
-              content: f.content as string,
-              githubSha: f.github_sha as string | null,
-              lastPushedAt: f.last_pushed_at as string | null,
-              sizeBytes: f.size_bytes as number,
-            })) || [],
-            deployments: (p.deployments as Array<Record<string, unknown>>)?.map((d) => ({
-              id: d.id as string,
-              triggeredBy: d.triggered_by as string,
-              githubRunId: d.github_run_id as string | null,
-              status: d.status as string,
-              startedAt: d.started_at as string,
-              completedAt: d.completed_at as string | null,
-              durationMs: d.duration_ms as number | null,
-              logSummary: d.log_summary as string | null,
-              errorMessage: d.error_message as string | null,
-            })) || [],
-          }))
-        );
-      }
-      // If API returns empty, keep the store's demo/seed data — don't overwrite with []
+      setProjects(
+        (data.projects || []).map((p: Record<string, unknown>) => ({
+          id: p.id as string,
+          name: p.name as string,
+          description: p.description as string,
+          githubRepoUrl: p.github_repo_url as string | null,
+          liveUrl: p.live_url as string | null,
+          framework: p.framework as string,
+          stackJson: p.stack_json as string,
+          defaultBranch: p.default_branch as string,
+          status: (p.status as ProjectStatus) || 'not_deployed',
+          createdAt: p.created_at as string,
+          updatedAt: p.updated_at as string,
+          files: (p.files as Array<Record<string, unknown>>)?.map((f) => ({
+            id: f.id as string,
+            filePath: f.file_path as string,
+            content: f.content as string,
+            githubSha: f.github_sha as string | null,
+            lastPushedAt: f.last_pushed_at as string | null,
+            sizeBytes: f.size_bytes as number,
+          })) || [],
+          deployments: (p.deployments as Array<Record<string, unknown>>)?.map((d) => ({
+            id: d.id as string,
+            triggeredBy: d.triggered_by as string,
+            githubRunId: d.github_run_id as string | null,
+            status: d.status as string,
+            startedAt: d.started_at as string,
+            completedAt: d.completed_at as string | null,
+            durationMs: d.duration_ms as number | null,
+            logSummary: d.log_summary as string | null,
+            errorMessage: d.error_message as string | null,
+          })) || [],
+        }))
+      );
     } catch (error) {
       console.error('Failed to fetch projects:', error);
     } finally {
@@ -727,12 +722,29 @@ export function DashboardView() {
   const buildingCount = projects.filter((p) => ['building', 'deploying'].includes(p.status)).length;
   const failedCount = projects.filter((p) => p.status === 'failed').length;
 
-  /* ----- Stats Config with Trend Indicators ----- */
+  const buildsToday = projects.reduce((acc, p) => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    return acc + (p.deployments?.filter(d =>
+      new Date(d.startedAt) >= todayStart
+    ).length || 0);
+  }, 0);
+
+  const deploysThisWeek = projects.reduce((acc, p) => {
+    const weekStart = new Date(Date.now() - 7 * 86400000);
+    return acc + (p.deployments?.filter(d =>
+      new Date(d.startedAt) >= weekStart
+    ).length || 0);
+  }, 0);
+
+  const aiMessagesCount = chatMessages.length + builderChat.length;
+
+  /* ----- Stats Config ----- */
   const stats = [
-    { label: 'Total Projects', value: projects.length, icon: FolderOpen, color: '#58a6ff', sparkline: [2, 4, 3, 5, 4, projects.length], trend: '+12%', trendUp: true, tooltip: `${liveCount} live, ${buildingCount} building, ${failedCount} failed` },
-    { label: 'Live', value: liveCount, icon: Zap, color: '#3fb950', sparkline: [0, 1, 1, 2, 1, liveCount], trend: '+8%', trendUp: true, tooltip: `${liveCount} of ${projects.length} projects deployed` },
-    { label: 'Building', value: buildingCount, icon: Activity, color: '#e3b341', sparkline: [0, 0, 1, 0, 1, buildingCount], trend: '-3%', trendUp: false, tooltip: `${buildingCount} active build jobs` },
-    { label: 'Failed', value: failedCount, icon: AlertCircle, color: '#f85149', sparkline: [0, 0, 0, 1, 0, failedCount], trend: '-15%', trendUp: false, tooltip: `${failedCount} deployment${failedCount !== 1 ? 's' : ''} need attention` },
+    { label: 'Total Projects', value: projects.length, icon: FolderOpen, color: '#58a6ff', sparkline: [2, 4, 3, 5, 4, projects.length], tooltip: `${liveCount} live, ${buildingCount} building, ${failedCount} failed` },
+    { label: 'Live', value: liveCount, icon: Zap, color: '#3fb950', sparkline: [0, 1, 1, 2, 1, liveCount], tooltip: `${liveCount} of ${projects.length} projects deployed` },
+    { label: 'Building', value: buildingCount, icon: Activity, color: '#e3b341', sparkline: [0, 0, 1, 0, 1, buildingCount], tooltip: `${buildingCount} active build jobs` },
+    { label: 'Failed', value: failedCount, icon: AlertCircle, color: '#f85149', sparkline: [0, 0, 0, 1, 0, failedCount], tooltip: `${failedCount} deployment${failedCount !== 1 ? 's' : ''} need attention` },
   ];
 
   /* ----- Filtered & Sorted Projects ----- */
@@ -907,10 +919,10 @@ export function DashboardView() {
               transition={{ delay: 0.2, duration: 0.4 }}
             >
               {[
-                { label: 'Builds today', value: 7, color: '#58a6ff', icon: Hammer },
-                { label: 'Deploys this week', value: 25, color: '#3fb950', icon: Rocket },
-                { label: 'AI Messages', value: 142, color: '#a371f7', icon: MessageSquare },
-                { label: 'Uptime', value: '99.9%', color: '#e3b341', icon: Wifi },
+                { label: 'Builds today', value: buildsToday, color: '#58a6ff', icon: Hammer },
+                { label: 'Deploys this week', value: deploysThisWeek, color: '#3fb950', icon: Rocket },
+                { label: 'AI Messages', value: aiMessagesCount, color: '#a371f7', icon: MessageSquare },
+                { label: 'Uptime', value: liveCount > 0 ? '99.9%' : '—', color: '#e3b341', icon: Wifi },
               ].map((item, i) => (
                 <div key={item.label} className="flex items-center gap-2.5">
                   {i > 0 && (
@@ -998,7 +1010,7 @@ export function DashboardView() {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
-                        <AnimatedNumber value={stat.value} color={stat.color} trendUp={stat.trendUp} />
+                        <AnimatedNumber value={stat.value} color={stat.color} trendUp={true} />
                         <div className="flex items-center gap-1.5">
                           <stat.icon className="w-3 h-3" style={{ color: stat.color }} />
                           <p className="text-xs" style={{ color: '#8b949e' }}>{stat.label}</p>
@@ -1016,22 +1028,6 @@ export function DashboardView() {
                           style={{ backgroundColor: `${stat.color}10` }}
                         />
                       </div>
-                    </div>
-                    {/* Trend badge */}
-                    <div className="mt-2 flex items-center gap-1">
-                      <motion.span
-                        className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                        style={{
-                          backgroundColor: stat.trendUp ? 'rgba(63,185,80,0.12)' : 'rgba(248,81,73,0.12)',
-                          color: stat.trendUp ? '#3fb950' : '#f85149',
-                        }}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.6 + i * 0.1, duration: 0.3 }}
-                      >
-                        {stat.trendUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                        {stat.trend}
-                      </motion.span>
                     </div>
                   </CardContent>
                   {/* Glassmorphism reflection effect at bottom */}
@@ -1070,7 +1066,7 @@ export function DashboardView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15, duration: 0.4 }}
       >
-        <ProjectAnalytics />
+        <ProjectAnalytics projects={projects} />
       </motion.div>
 
       {/* ================================================
@@ -1179,7 +1175,7 @@ export function DashboardView() {
       </motion.div>
 
       {/* ================================================
-          TEAM ACTIVITY FEED
+          RECENT ACTIVITY FEED (derived from real data)
           ================================================ */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -1190,57 +1186,82 @@ export function DashboardView() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Users className="w-4 h-4" style={{ color: '#58a6ff' }} />
-                <CardTitle className="text-sm" style={{ color: '#c9d1d9' }}>Team Activity</CardTitle>
-                <Badge variant="outline" className="text-[9px] px-1.5" style={{ borderColor: '#58a6ff30', color: '#58a6ff' }}>Live</Badge>
+                <Activity className="w-4 h-4" style={{ color: '#58a6ff' }} />
+                <CardTitle className="text-sm" style={{ color: '#c9d1d9' }}>Recent Activity</CardTitle>
               </div>
-              <button className="text-[10px] flex items-center gap-1 hover:underline" style={{ color: '#58a6ff' }}>
+              <button
+                className="text-[10px] flex items-center gap-1 hover:underline"
+                style={{ color: '#58a6ff' }}
+                onClick={() => setShowFullActivityFeed(true)}
+              >
                 View All <ArrowRight className="w-2.5 h-2.5" />
               </button>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 max-h-80 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#30363d transparent' }}>
-              {[
-                { name: 'Sarah Chen', action: 'deployed to production', project: 'api-gateway', time: '2m ago', color: '#3fb950', initials: 'SC' },
-                { name: 'Alex Rivera', action: 'created a new branch', project: 'feature/auth', time: '8m ago', color: '#58a6ff', initials: 'AR' },
-                { name: 'Jordan Lee', action: 'merged PR #42', project: 'dashboard-redesign', time: '15m ago', color: '#a371f7', initials: 'JL' },
-                { name: 'Morgan Kim', action: 'deployed to staging', project: 'payment-service', time: '32m ago', color: '#e3b341', initials: 'MK' },
-                { name: 'Casey Park', action: 'fixed build error in', project: 'user-service', time: '1h ago', color: '#f85149', initials: 'CP' },
-                { name: 'Riley Zhang', action: 'pushed 3 commits to', project: 'docs-site', time: '2h ago', color: '#58a6ff', initials: 'RZ' },
-                { name: 'Taylor Brooks', action: 'released v2.1.0 of', project: 'sdk-core', time: '3h ago', color: '#3fb950', initials: 'TB' },
-              ].map((member, i) => (
-                <motion.div
-                  key={i}
-                  className="flex items-center gap-3 p-2 rounded-lg transition-colors hover:bg-[#0d1117]"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.06, duration: 0.3 }}
-                  style={{ borderLeft: `2px solid ${member.color}40` }}
-                >
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                    style={{ backgroundColor: `${member.color}20`, color: member.color }}
-                  >
-                    {member.initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs" style={{ color: '#c9d1d9' }}>
-                      <span className="font-semibold">{member.name}</span>{' '}
-                      <span style={{ color: '#8b949e' }}>{member.action}</span>{' '}
-                      <code className="text-[10px] px-1 py-0.5 rounded" style={{ backgroundColor: '#21262d', color: member.color }}>{member.project}</code>
-                    </p>
-                  </div>
-                  <span className="text-[10px] shrink-0" style={{ color: '#484f58' }}>{member.time}</span>
-                </motion.div>
-              ))}
-            </div>
+            {projects.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <Activity className="w-8 h-8 mb-3" style={{ color: '#30363d' }} />
+                <p className="text-xs" style={{ color: '#8b949e' }}>No activity yet. Build your first project to get started.</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-80 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#30363d transparent' }}>
+                {projects
+                  .flatMap((p) =>
+                    (p.deployments || []).map((d) => ({
+                      projectName: p.name,
+                      status: d.status,
+                      triggeredBy: d.triggeredBy,
+                      startedAt: d.startedAt,
+                      completedAt: d.completedAt,
+                    }))
+                  )
+                  .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+                  .slice(0, 10)
+                  .map((event, i) => {
+                    const isCompleted = event.status === 'completed' || event.status === 'success';
+                    const isFailed = event.status === 'failed';
+                    const date = new Date(event.startedAt);
+                    const timeStr = date.toLocaleDateString() === new Date().toLocaleDateString()
+                      ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                    return (
+                      <motion.div
+                        key={`${event.projectName}-${event.startedAt}-${i}`}
+                        className="flex items-center gap-3 p-2 rounded-lg transition-colors hover:bg-[#0d1117]"
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.06, duration: 0.3 }}
+                        style={{ borderLeft: `2px solid ${isFailed ? '#f85149' : isCompleted ? '#3fb950' : '#e3b341'}40` }}
+                      >
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: `${isFailed ? '#f85149' : isCompleted ? '#3fb950' : '#e3b341'}20`, color: isFailed ? '#f85149' : isCompleted ? '#3fb950' : '#e3b341' }}
+                        >
+                          {isCompleted ? <CheckCircle className="w-4 h-4" /> : isFailed ? <AlertCircle className="w-4 h-4" /> : <Rocket className="w-4 h-4" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs" style={{ color: '#c9d1d9' }}>
+                            <span className="font-semibold">{event.projectName}</span>{' '}
+                            <span style={{ color: '#8b949e' }}>
+                              {isCompleted ? 'deployed successfully' : isFailed ? 'deployment failed' : 'deploying'}
+                            </span>
+                          </p>
+                          <p className="text-[10px]" style={{ color: '#484f58' }}>
+                            by {event.triggeredBy} · {timeStr}
+                          </p>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>
 
       {/* ================================================
-          DEPLOYMENT PIPELINE VISUALIZATION
+          PROJECT STATUS PIPELINE (derived from real data)
           ================================================ */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -1251,74 +1272,61 @@ export function DashboardView() {
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <GitBranch className="w-4 h-4" style={{ color: '#3fb950' }} />
-              <CardTitle className="text-sm" style={{ color: '#c9d1d9' }}>Deployment Pipeline</CardTitle>
+              <CardTitle className="text-sm" style={{ color: '#c9d1d9' }}>Project Pipeline</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-4 gap-3">
-              {[
-                { stage: 'Building', color: '#e3b341', icon: Hammer, items: [
-                  { name: 'analytics-v3', time: '2m 15s' },
-                  { name: 'auth-service', time: '1m 45s' },
-                ]},
-                { stage: 'Testing', color: '#58a6ff', icon: Activity, items: [
-                  { name: 'payment-api', time: '4m 02s' },
-                ]},
-                { stage: 'Deploying', color: '#a371f7', icon: Rocket, items: [
-                  { name: 'user-dashboard', time: '30s' },
-                ]},
-                { stage: 'Live', color: '#3fb950', icon: CheckCircle, items: [
-                  { name: 'api-gateway', time: '2h ago' },
-                  { name: 'docs-site', time: '5h ago' },
-                  { name: 'sdk-core', time: '8h ago' },
-                ]},
-              ].map((col, ci) => (
-                <div key={col.stage} className="space-y-2">
-                  <div className="flex items-center gap-1.5 pb-2 border-b" style={{ borderColor: '#21262d' }}>
-                    <div className="p-1 rounded" style={{ backgroundColor: `${col.color}15` }}>
-                      <col.icon className="w-3 h-3" style={{ color: col.color }} />
+            {projects.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <GitBranch className="w-8 h-8 mb-3" style={{ color: '#30363d' }} />
+                <p className="text-xs" style={{ color: '#8b949e' }}>No projects yet. Build your first project to see the pipeline.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {[
+                  { status: 'building' as const, label: 'Building', color: '#e3b341', icon: Hammer },
+                  { status: 'deploying' as const, label: 'Deploying', color: '#a371f7', icon: Rocket },
+                  { status: 'live' as const, label: 'Live', color: '#3fb950', icon: CheckCircle },
+                  { status: 'failed' as const, label: 'Failed', color: '#f85149', icon: AlertCircle },
+                  { status: 'not_deployed' as const, label: 'Not Deployed', color: '#8b949e', icon: FolderOpen },
+                ].map((col) => {
+                  const statusProjects = projects.filter((p) => p.status === col.status);
+                  return (
+                    <div key={col.status} className="space-y-2">
+                      <div className="flex items-center gap-1.5 pb-2 border-b" style={{ borderColor: '#21262d' }}>
+                        <div className="p-1 rounded" style={{ backgroundColor: `${col.color}15` }}>
+                          <col.icon className="w-3 h-3" style={{ color: col.color }} />
+                        </div>
+                        <span className="text-[10px] font-semibold" style={{ color: col.color }}>{col.label}</span>
+                        <span className="text-[9px] ml-auto px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${col.color}15`, color: col.color }}>{statusProjects.length}</span>
+                      </div>
+                      <div className="space-y-1.5 min-h-[60px]">
+                        {statusProjects.map((project) => (
+                          <motion.div
+                            key={project.id}
+                            className="p-2 rounded-lg border"
+                            style={{ backgroundColor: '#0d1117', borderColor: `${col.color}20` }}
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.3 }}
+                            layout
+                          >
+                            <p className="text-[10px] font-medium truncate" style={{ color: '#c9d1d9' }}>{project.name}</p>
+                            <p className="text-[9px]" style={{ color: '#484f58' }}>{project.framework}</p>
+                          </motion.div>
+                        ))}
+                      </div>
                     </div>
-                    <span className="text-[10px] font-semibold" style={{ color: col.color }}>{col.stage}</span>
-                    <span className="text-[9px] ml-auto px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${col.color}15`, color: col.color }}>{col.items.length}</span>
-                  </div>
-                  <div className="space-y-1.5 min-h-[60px]">
-                    {col.items.map((item, ii) => (
-                      <motion.div
-                        key={item.name}
-                        className="p-2 rounded-lg border"
-                        style={{ backgroundColor: '#0d1117', borderColor: `${col.color}20` }}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: ci * 0.15 + ii * 0.08, duration: 0.3 }}
-                        layout
-                      >
-                        <p className="text-[10px] font-medium truncate" style={{ color: '#c9d1d9' }}>{item.name}</p>
-                        <p className="text-[9px]" style={{ color: '#484f58' }}>{item.time}</p>
-                      </motion.div>
-                    ))}
-                  </div>
-                  {/* Connector arrow */}
-                  {ci < 3 && (
-                    <div className="hidden lg:flex items-center justify-center -mt-8 -mr-5 relative z-10">
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            {/* Connecting arrows between columns (visible on larger screens) */}
-            <div className="hidden lg:flex items-center justify-between mt-[-48px] mb-3 px-12 pointer-events-none">
-              {[0,1,2].map(i => (
-                <motion.div key={i} animate={{ x: [0, 4, 0] }} transition={{ duration: 2, repeat: Infinity, delay: i * 0.5 }}>
-                  <ArrowRight className="w-4 h-4" style={{ color: '#30363d' }} />
-                </motion.div>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>
 
       {/* ================================================
-          QUICK STATS COMPARISON — WEEK OVER WEEK
+          WEEK-OVER-WEEK COMPARISON (derived from real data)
           ================================================ */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -1336,67 +1344,112 @@ export function DashboardView() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {[
-                { label: 'Deployments', thisWeek: 47, lastWeek: 41, change: '+15%', up: true, color: '#3fb950', bars: [41, 47] },
-                { label: 'Build Time', thisWeek: 142, lastWeek: 155, change: '-8%', up: true, color: '#58a6ff', bars: [155, 142], unit: 's' },
-                { label: 'Success Rate', thisWeek: 96, lastWeek: 94, change: '+2%', up: true, color: '#a371f7', bars: [94, 96], unit: '%' },
-                { label: 'Error Rate', thisWeek: 4, lastWeek: 6, change: '-33%', up: true, color: '#e3b341', bars: [6, 4], unit: '%' },
-              ].map((metric, i) => (
-                <motion.div
-                  key={metric.label}
-                  className="p-3 rounded-lg border"
-                  style={{ backgroundColor: '#0d1117', borderColor: `${metric.color}20` }}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.08, duration: 0.3 }}
-                >
-                  <p className="text-[10px] font-medium mb-2" style={{ color: '#8b949e' }}>{metric.label}</p>
-                  <div className="flex items-end gap-2 mb-2">
-                    {/* Last week bar */}
-                    <div className="flex-1">
-                      <div className="h-16 rounded-md overflow-hidden flex items-end" style={{ backgroundColor: '#21262d' }}>
-                        <motion.div
-                          className="w-full rounded-t-md"
-                          style={{ backgroundColor: '#30363d' }}
-                          initial={{ height: 0 }}
-                          animate={{ height: `${(metric.lastWeek / Math.max(...metric.bars)) * 100}%` }}
-                          transition={{ delay: 0.3 + i * 0.1, duration: 0.6, ease: 'easeOut' }}
-                        />
-                      </div>
-                      <p className="text-[8px] text-center mt-1" style={{ color: '#484f58' }}>Last</p>
-                    </div>
-                    {/* This week bar */}
-                    <div className="flex-1">
-                      <div className="h-16 rounded-md overflow-hidden flex items-end" style={{ backgroundColor: '#21262d' }}>
-                        <motion.div
-                          className="w-full rounded-t-md"
-                          style={{ backgroundColor: metric.color }}
-                          initial={{ height: 0 }}
-                          animate={{ height: `${(metric.thisWeek / Math.max(...metric.bars)) * 100}%` }}
-                          transition={{ delay: 0.4 + i * 0.1, duration: 0.6, ease: 'easeOut' }}
-                        />
-                      </div>
-                      <p className="text-[8px] text-center mt-1" style={{ color: '#484f58' }}>This</p>
-                    </div>
+            {(() => {
+              const now = Date.now();
+              const oneWeekMs = 7 * 86400000;
+              const allDeployments = projects.flatMap((p) => p.deployments || []);
+              const thisWeekDeploys = allDeployments.filter((d) => new Date(d.startedAt).getTime() >= now - oneWeekMs);
+              const lastWeekDeploys = allDeployments.filter((d) => {
+                const t = new Date(d.startedAt).getTime();
+                return t >= now - 2 * oneWeekMs && t < now - oneWeekMs;
+              });
+              const thisWeekCount = thisWeekDeploys.length;
+              const lastWeekCount = lastWeekDeploys.length;
+              const thisWeekSuccess = thisWeekDeploys.filter((d) => d.status === 'completed' || d.status === 'success').length;
+              const lastWeekSuccess = lastWeekDeploys.filter((d) => d.status === 'completed' || d.status === 'success').length;
+              const thisWeekFailed = thisWeekDeploys.filter((d) => d.status === 'failed').length;
+              const lastWeekFailed = lastWeekDeploys.filter((d) => d.status === 'failed').length;
+              const thisWeekSuccessRate = thisWeekCount > 0 ? Math.round((thisWeekSuccess / thisWeekCount) * 100) : 0;
+              const lastWeekSuccessRate = lastWeekCount > 0 ? Math.round((lastWeekSuccess / lastWeekCount) * 100) : 0;
+              const thisWeekAvgDuration = thisWeekDeploys.filter((d) => d.durationMs).length > 0
+                ? Math.round(thisWeekDeploys.filter((d) => d.durationMs).reduce((a, d) => a + (d.durationMs || 0), 0) / thisWeekDeploys.filter((d) => d.durationMs).length / 1000)
+                : 0;
+              const lastWeekAvgDuration = lastWeekDeploys.filter((d) => d.durationMs).length > 0
+                ? Math.round(lastWeekDeploys.filter((d) => d.durationMs).reduce((a, d) => a + (d.durationMs || 0), 0) / lastWeekDeploys.filter((d) => d.durationMs).length / 1000)
+                : 0;
+
+              if (allDeployments.length === 0) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <TrendingUp className="w-8 h-8 mb-3" style={{ color: '#30363d' }} />
+                    <p className="text-xs" style={{ color: '#8b949e' }}>No deployment data yet</p>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold" style={{ color: '#c9d1d9' }}>
-                      {metric.thisWeek}{metric.unit || ''}
-                    </span>
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${metric.color}15`, color: metric.color }}>
-                      {metric.change}
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                );
+              }
+
+              const calcChange = (curr: number, prev: number) => {
+                if (prev === 0) return curr > 0 ? '+100%' : '0%';
+                const pct = Math.round(((curr - prev) / prev) * 100);
+                return pct >= 0 ? `+${pct}%` : `${pct}%`;
+              };
+
+              const metrics = [
+                { label: 'Deployments', thisWeek: thisWeekCount, lastWeek: lastWeekCount, change: calcChange(thisWeekCount, lastWeekCount), color: '#3fb950' },
+                { label: 'Avg Build Time', thisWeek: thisWeekAvgDuration, lastWeek: lastWeekAvgDuration, change: calcChange(thisWeekAvgDuration, lastWeekAvgDuration), color: '#58a6ff', unit: 's' },
+                { label: 'Success Rate', thisWeek: thisWeekSuccessRate, lastWeek: lastWeekSuccessRate, change: calcChange(thisWeekSuccessRate, lastWeekSuccessRate), color: '#a371f7', unit: '%' },
+                { label: 'Failed', thisWeek: thisWeekFailed, lastWeek: lastWeekFailed, change: calcChange(thisWeekFailed, lastWeekFailed), color: '#e3b341' },
+              ];
+
+              return (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {metrics.map((metric, i) => {
+                    const barMax = Math.max(metric.thisWeek, metric.lastWeek, 1);
+                    return (
+                      <motion.div
+                        key={metric.label}
+                        className="p-3 rounded-lg border"
+                        style={{ backgroundColor: '#0d1117', borderColor: `${metric.color}20` }}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.08, duration: 0.3 }}
+                      >
+                        <p className="text-[10px] font-medium mb-2" style={{ color: '#8b949e' }}>{metric.label}</p>
+                        <div className="flex items-end gap-2 mb-2">
+                          <div className="flex-1">
+                            <div className="h-16 rounded-md overflow-hidden flex items-end" style={{ backgroundColor: '#21262d' }}>
+                              <motion.div
+                                className="w-full rounded-t-md"
+                                style={{ backgroundColor: '#30363d' }}
+                                initial={{ height: 0 }}
+                                animate={{ height: `${(metric.lastWeek / barMax) * 100}%` }}
+                                transition={{ delay: 0.3 + i * 0.1, duration: 0.6, ease: 'easeOut' }}
+                              />
+                            </div>
+                            <p className="text-[8px] text-center mt-1" style={{ color: '#484f58' }}>Last</p>
+                          </div>
+                          <div className="flex-1">
+                            <div className="h-16 rounded-md overflow-hidden flex items-end" style={{ backgroundColor: '#21262d' }}>
+                              <motion.div
+                                className="w-full rounded-t-md"
+                                style={{ backgroundColor: metric.color }}
+                                initial={{ height: 0 }}
+                                animate={{ height: `${(metric.thisWeek / barMax) * 100}%` }}
+                                transition={{ delay: 0.4 + i * 0.1, duration: 0.6, ease: 'easeOut' }}
+                              />
+                            </div>
+                            <p className="text-[8px] text-center mt-1" style={{ color: '#484f58' }}>This</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold" style={{ color: '#c9d1d9' }}>
+                            {metric.thisWeek}{metric.unit || ''}
+                          </span>
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${metric.color}15`, color: metric.color }}>
+                            {metric.change}
+                          </span>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       </motion.div>
 
       {/* ================================================
-          RECENT REPOSITORIES WIDGET
+          DEPLOYED REPOSITORIES (derived from real data)
           ================================================ */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -1408,54 +1461,55 @@ export function DashboardView() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FolderOpen className="w-4 h-4" style={{ color: '#58a6ff' }} />
-                <CardTitle className="text-sm" style={{ color: '#c9d1d9' }}>Recent Repositories</CardTitle>
+                <CardTitle className="text-sm" style={{ color: '#c9d1d9' }}>Your Repositories</CardTitle>
               </div>
-              <button className="text-[10px] flex items-center gap-1 hover:underline" style={{ color: '#58a6ff' }}>
-                View All <ArrowRight className="w-2.5 h-2.5" />
-              </button>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 max-h-72 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#30363d transparent' }}>
-              {[
-                { name: 'gitdeploy-core', desc: 'Main platform backend service', lang: 'TypeScript', langColor: '#3178c6', stars: 284, updated: '2h ago' },
-                { name: 'dashboard-ui', desc: 'React dashboard components', lang: 'TypeScript', langColor: '#3178c6', stars: 156, updated: '5h ago' },
-                { name: 'deploy-agent', desc: 'CI/CD deployment automation agent', lang: 'Python', langColor: '#3572A5', stars: 98, updated: '1d ago' },
-                { name: 'infra-config', desc: 'Infrastructure as code configs', lang: 'HCL', langColor: '#844fba', stars: 42, updated: '2d ago' },
-                { name: 'docs-site', desc: 'Documentation website built with Next.js', lang: 'MDX', langColor: '#fcb32c', stars: 73, updated: '3d ago' },
-                { name: 'auth-service', desc: 'OAuth2 authentication microservice', lang: 'Go', langColor: '#00add8', stars: 121, updated: '4d ago' },
-              ].map((repo, i) => (
-                <motion.div
-                  key={repo.name}
-                  className="flex items-center gap-3 p-2.5 rounded-lg border transition-colors hover:bg-[#0d1117] cursor-pointer"
-                  style={{ borderColor: '#21262d' }}
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.06, duration: 0.3 }}
-                >
-                  <div className="p-1.5 rounded-lg shrink-0" style={{ backgroundColor: '#21262d' }}>
-                    <FolderOpen className="w-4 h-4" style={{ color: '#8b949e' }} />
+            {(() => {
+              const reposWithUrl = projects.filter((p) => p.githubRepoUrl);
+              if (reposWithUrl.length === 0) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <FolderOpen className="w-8 h-8 mb-3" style={{ color: '#30363d' }} />
+                    <p className="text-xs" style={{ color: '#8b949e' }}>No repos yet. Deploy a project to create one.</p>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs font-medium truncate" style={{ color: '#58a6ff' }}>{repo.name}</p>
-                    </div>
-                    <p className="text-[10px] truncate" style={{ color: '#8b949e' }}>{repo.desc}</p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="flex items-center gap-1">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: repo.langColor }} />
-                      <span className="text-[9px]" style={{ color: '#8b949e' }}>{repo.lang}</span>
-                    </div>
-                    <div className="flex items-center gap-0.5">
-                      <Star className="w-3 h-3" style={{ color: '#e3b341' }} />
-                      <span className="text-[9px]" style={{ color: '#8b949e' }}>{repo.stars}</span>
-                    </div>
-                    <span className="text-[9px]" style={{ color: '#484f58' }}>{repo.updated}</span>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                );
+              }
+              return (
+                <div className="space-y-2 max-h-72 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#30363d transparent' }}>
+                  {reposWithUrl.map((project, i) => {
+                    const repoName = project.githubRepoUrl?.split('/').filter(Boolean).pop() || project.name;
+                    return (
+                      <motion.div
+                        key={project.id}
+                        className="flex items-center gap-3 p-2.5 rounded-lg border transition-colors hover:bg-[#0d1117] cursor-pointer"
+                        style={{ borderColor: '#21262d' }}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.06, duration: 0.3 }}
+                      >
+                        <div className="p-1.5 rounded-lg shrink-0" style={{ backgroundColor: '#21262d' }}>
+                          <FolderOpen className="w-4 h-4" style={{ color: '#8b949e' }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-medium truncate" style={{ color: '#58a6ff' }}>{repoName}</p>
+                          </div>
+                          <p className="text-[10px] truncate" style={{ color: '#8b949e' }}>{project.description || 'No description'}</p>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="flex items-center gap-1">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: FRAMEWORK_BADGES[project.framework]?.color || '#8b949e' }} />
+                            <span className="text-[9px]" style={{ color: '#8b949e' }}>{FRAMEWORK_BADGES[project.framework]?.label || project.framework}</span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       </motion.div>

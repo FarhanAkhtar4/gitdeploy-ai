@@ -140,11 +140,120 @@ export default function GitDeployAI() {
     setCommandPaletteOpen,
     setCurrentView,
     notifications,
+    setUser,
+    setGithubUser,
+    setIsGithubConnected,
+    setProjects,
+    user,
   } = useAppStore();
 
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [sessionLoading, setSessionLoading] = useState(true);
 
-  const unreadNotificationCount = notifications.filter(n => !n.read).length + 5; // +5 for mock notifications
+  const unreadNotificationCount = notifications.filter(n => !n.read).length;
+
+  // Session restore on mount
+  useEffect(() => {
+    async function restoreSession() {
+      try {
+        const savedUserId = localStorage.getItem('gitdeploy_user_id');
+        if (!savedUserId) {
+          setCurrentView('onboarding');
+          setSessionLoading(false);
+          return;
+        }
+
+        const res = await fetch('/api/user', {
+          headers: { 'x-user-id': savedUserId },
+        });
+
+        if (res.status === 401 || res.status === 404) {
+          localStorage.removeItem('gitdeploy_user_id');
+          setCurrentView('onboarding');
+          setSessionLoading(false);
+          return;
+        }
+
+        const data = await res.json();
+
+        if (data.error || !data.user) {
+          localStorage.removeItem('gitdeploy_user_id');
+          setCurrentView('onboarding');
+          setSessionLoading(false);
+          return;
+        }
+
+        setUser({
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name,
+          plan: data.user.plan,
+        });
+
+        if (data.github?.connected) {
+          setIsGithubConnected(true);
+          setGithubUser({
+            login: data.user.github_username || '',
+            avatar_url: data.user.avatar_url || '',
+            public_repos: 0,
+            plan: { name: data.user.plan || 'free' },
+            scopes: (data.github.scopes || '').split(',').filter(Boolean),
+          });
+        }
+
+        // Fetch real projects
+        try {
+          const projRes = await fetch('/api/projects/list', {
+            headers: { 'x-user-id': data.user.id },
+          });
+          const projData = await projRes.json();
+          if (projData.projects) {
+            setProjects(projData.projects.map((p: Record<string, unknown>) => ({
+              id: p.id as string,
+              name: p.name as string,
+              description: p.description as string,
+              githubRepoUrl: p.github_repo_url as string | null,
+              liveUrl: p.live_url as string | null,
+              framework: p.framework as string,
+              stackJson: p.stack_json as string,
+              defaultBranch: (p.default_branch as string) || 'main',
+              status: (p.status as string) || 'not_deployed',
+              createdAt: p.created_at as string,
+              updatedAt: p.updated_at as string,
+              files: (p.files as Array<Record<string, unknown>>)?.map((f: Record<string, unknown>) => ({
+                id: f.id as string,
+                filePath: f.file_path as string,
+                content: f.content as string,
+                githubSha: f.github_sha as string | null,
+                lastPushedAt: f.last_pushed_at as string | null,
+                sizeBytes: f.size_bytes as number,
+              })) || [],
+              deployments: (p.deployments as Array<Record<string, unknown>>)?.map((d: Record<string, unknown>) => ({
+                id: d.id as string,
+                triggeredBy: d.triggered_by as string,
+                githubRunId: d.github_run_id as string | null,
+                status: d.status as string,
+                startedAt: d.started_at as string,
+                completedAt: d.completed_at as string | null,
+                durationMs: d.duration_ms as number | null,
+                logSummary: d.log_summary as string | null,
+                errorMessage: d.error_message as string | null,
+              })) || [],
+            })));
+          }
+        } catch {
+          // Project fetch failure is non-fatal
+        }
+
+        setCurrentView('dashboard');
+      } catch {
+        setCurrentView('onboarding');
+      } finally {
+        setSessionLoading(false);
+      }
+    }
+    restoreSession();
+  }, []);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -224,6 +333,27 @@ export default function GitDeployAI() {
         return <DashboardView />;
     }
   };
+
+  if (sessionLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center"
+           style={{ backgroundColor: '#0d1117' }}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+               style={{ background: 'linear-gradient(135deg, #58a6ff, #3fb950)' }}>
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex gap-1.5">
+            {[0,1,2].map(i => (
+              <div key={i} className="w-2 h-2 rounded-full animate-bounce"
+                   style={{ backgroundColor: '#58a6ff',
+                            animationDelay: `${i * 0.15}s` }} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#0d1117' }}>
@@ -390,7 +520,7 @@ export default function GitDeployAI() {
               Press <kbd className="px-1 py-0.5 rounded text-[9px] font-mono border" style={{ borderColor: '#30363d', backgroundColor: '#21262d' }}>⌘K</kbd> to search · <kbd className="px-1 py-0.5 rounded text-[9px] font-mono border" style={{ borderColor: '#30363d', backgroundColor: '#21262d' }}>?</kbd> for shortcuts
             </span>
             <span className="text-[10px]" style={{ color: '#484f58' }}>
-              Powered by z-ai-web-dev-sdk
+              Powered by AI
             </span>
             <span className="text-[10px]" style={{ color: '#484f58' }}>
               © 2025 GitDeploy AI

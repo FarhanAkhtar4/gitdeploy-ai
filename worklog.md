@@ -1,6 +1,42 @@
 # GitDeploy AI - Worklog
 
 ---
+Task ID: block-9-10
+Agent: Production Hardening (Block 9 + Block 10)
+Task: Onboarding auto-redirect + Builder empty state welcome message
+
+Work Log:
+- Read worklog.md — reviewed full project history
+- Read onboarding-wizard.tsx — identified `setShowCelebration(true)` at line 119
+- Read builder-view.tsx — identified existing empty state at lines 968-1034
+
+### CHANGE 9.1 — Auto-redirect after onboarding success
+- Added `setTimeout(() => { setCurrentView('dashboard'); }, 2500);` after `setShowCelebration(true)` in `handleValidateToken`
+- After completing onboarding (GitHub connected), user sees celebration for 2.5s then auto-navigates to dashboard
+- `setCurrentView` was already available from `useAppStore` destructuring on line 49
+
+### CHANGE 10.1 — Welcoming empty state in Builder view
+- Replaced the old empty state (Sparkles icon + EXAMPLE_PROMPTS with motion buttons + "Or try a template" link) with the new simplified welcome state
+- New empty state features:
+  - Bot icon from lucide-react with gradient background (blue→green) and blue border
+  - "Describe your project" heading
+  - "Tell the AI what you want to build. Be as detailed or as brief as you like." subtitle
+  - 2x2 grid of quick-start suggestion buttons: Invoice SaaS, Task Manager, Analytics Dashboard, Food Delivery API
+  - Each button calls `sendMessage(p.text)` with a detailed prompt
+  - Dark theme styling (#21262d bg, #30363d border, #8b949e text)
+- Confirmed `Bot` was already imported from lucide-react (line 18)
+
+### Verification
+- Ran `bun run lint` — zero errors in modified files
+- Pre-existing lint issues remain in page.tsx (1 warning) and project-analytics.tsx (pre-existing)
+- No new lint errors introduced
+
+Stage Summary:
+- Onboarding now auto-redirects to dashboard 2.5s after successful GitHub connect
+- Builder view shows a cleaner, more focused empty state with Bot icon and 4 quick-start prompts
+- Both changes are minimal, targeted edits with no collateral modifications
+
+---
 Task ID: 10
 Agent: main (Phase 8 - GitHub Push, Feature Enhancements, Cron Setup)
 Task: Create GitHub repo, push code, enhance styling and features, set up auto-improvement cron
@@ -1744,3 +1780,316 @@ Stage Summary:
 - Deploy: echo no-op command (Cloudflare auto-deploys Git-connected projects)
 - Environment variables still need to be set in Cloudflare dashboard for runtime functionality
 - Live URL: https://gitdeploy-ai-app.pages.dev (or check Cloudflare dashboard)
+
+---
+Task ID: block-7
+Agent: Production Hardening Agent
+Task: Fix Deploy Route Logic Bugs in src/app/api/projects/deploy/route.ts
+
+Work Log:
+
+### CHANGE 7.1 — Remove dead `owner` variable
+- Removed `const owner = credential.scopes;` line (was dead code; `owner` was never used and `scopes` is not the owner)
+- Line 42→43: `const token = ...` now flows directly into `const user = ...`
+
+### CHANGE 7.2 — Skip workflow files in generic upload loop
+- Added `if (file.file_path.includes('.github/workflows/')) continue;` at the start of the for loop body in STEP D2
+- Prevents duplicate uploads of workflow files (STEP D3 handles them separately with different commit messages)
+
+### CHANGE 7.3 — Hard-fail when zero files upload successfully
+- Added check after the file upload loop: `if (uploadedCount === 0 && totalFiles > 0)`
+- Updates deployment status to 'failed' with error_message listing all failures
+- Updates project status to 'failed'
+- Returns 500 JSON response with `{ error: 'Deployment failed: no files uploaded.', uploadErrors }`
+- Prevents the code from proceeding to STEP D3 (workflow deployment) when no files were uploaded
+
+### CHANGE 7.4 — Surface rate limit errors from workflow dispatch
+- Replaced `console.error('Workflow dispatch error:', error);` with:
+  ```typescript
+  const msg = error instanceof Error ? error.message : 'Unknown error';
+  uploadErrors.push(`Workflow dispatch failed: ${msg}`);
+  ```
+- Workflow dispatch errors now surface to the client via the `uploadErrors` array instead of being silently swallowed
+
+Lint: No errors in deploy/route.ts (pre-existing lint issues in other files unchanged)
+Stage Summary: All 4 logic bug fixes applied to deploy route. Dead code removed, duplicate uploads prevented, zero-upload hard-fail added, workflow dispatch errors surfaced to client.
+
+---
+Task ID: block-5-6
+Agent: production-hardening
+Task: Kill demo user fallback in /api/user route; eliminate hardcoded encryption key fallback
+
+Work Log:
+
+### CHANGE 5.1 — Remove DEMO_USER and all demo fallbacks (src/app/api/user/route.ts)
+- Removed the entire `DEMO_USER` const object
+- If no `x-user-id` header → returns 401 with `{ error: 'Authentication required' }`
+- If DB error (catch block) → returns 500 with `{ error: 'Failed to load user data' }`
+- If user not found in DB → returns 404 with `{ error: 'User not found' }`
+- GitHub credential lookup kept but changed from try/catch to `.catch(() => null)` (non-fatal)
+- Removed outer try/catch that was swallowing errors and returning DEMO_USER
+- Kept `runtime = 'edge'`
+
+### CHANGE 6.1 — Eliminate hardcoded fallback key (src/lib/encryption.ts)
+- Removed top-level `const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'gitdeploy-ai-default-key-change-in-prod-32ch'`
+- Rewrote `getKeyBytes()` to read `process.env.ENCRYPTION_KEY` directly and throw a descriptive error if missing or shorter than 32 characters
+- Error message includes instructions: `Generate one with: openssl rand -base64 32`
+- Key is sliced to first 32 characters (no more padEnd padding)
+- All existing functionality preserved: encrypt, decrypt, getTokenHint, importKey, hexToBytes, bytesToHex
+
+### Verification
+- ESLint passes with zero errors on both modified files
+- No new lint warnings introduced
+
+Stage Summary:
+- /api/user no longer leaks demo user data — returns proper HTTP error codes (401, 500, 404)
+- Encryption module no longer has a hardcoded fallback key — will fail fast at startup if ENCRYPTION_KEY is not configured
+- Both changes are backward-incompatible by design (production hardening)
+
+---
+Task ID: block-1
+Agent: production-hardening (Store Surgery)
+Task: Remove all fake/demo data from Zustand store initial state to eliminate fake-data-on-fresh-load bugs and SSR hydration mismatches
+
+Work Log:
+- Read worklog.md to understand project history and context
+- Read src/store/app-store.ts and src/app/page.tsx to identify all fake initial values
+- Applied 8 changes to eliminate fake data and hydration issues:
+
+### CHANGE 1.1 — User initial state
+- Replaced `user: { id: 'demo-user-1', email: 'demo@gitdeploy.ai', name: 'Alex Chen', plan: 'pro' }` with `user: null`
+- WHY: Hardcoded demo user made the app think a real user was logged in on every fresh load
+
+### CHANGE 1.2 — GitHub state initial values
+- Replaced `githubUser: { login: 'alexchen', ... }` with `githubUser: null`
+- Changed `isGithubConnected: true` to `isGithubConnected: false`
+- WHY: New visitors saw "alexchen · PRO · GitHub Connected" before doing anything
+
+### CHANGE 1.3 — Projects initial state
+- Replaced 3 fake projects array with `projects: []`
+- Replaced `selectedProject: { id: 'proj-1', ... }` with `selectedProject: null`
+- WHY: Fake projects persisted when DB had no projects, confusing the app
+
+### CHANGE 1.4 — Builder chat initial state
+- Replaced builderChat with 2 fake messages with `builderChat: []`
+- WHY: New users saw a conversation about "Invoice Manager" they never had
+
+### CHANGE 1.5 — Chat messages initial state
+- Replaced chatMessages with 2 pre-seeded CI/CD messages with `chatMessages: []`
+- WHY: Users saw messages they never sent
+
+### CHANGE 1.6 — Notifications initial state
+- Replaced 4 hardcoded notifications referencing fake projects with `notifications: []`
+- WHY: Timestamps used Date.now() causing SSR hydration mismatches; referenced non-existent projects
+
+### CHANGE 1.7 — Fix Date.now() and fake build state
+- Changed `buildProgress: { current: 4, total: 22, section: 'Building API routes' }` to `{ current: 0, total: 0, section: '' }`
+- Changed `generatedFiles` (4 fake file entries) to `generatedFiles: []`
+- Changed addNotification ID from `id: \`n${Date.now()}\`` to `id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'n-' + Math.random().toString(36).slice(2)`
+- WHY: Date.now() in initial state runs at module load on both server/client at different timestamps → hydration mismatch; buildProgress implied a build in progress when there wasn't one
+
+### CHANGE 1.8 — Fix notification count in page.tsx
+- Changed `const unreadNotificationCount = notifications.filter(n => !n.read).length + 5;` to `const unreadNotificationCount = notifications.filter(n => !n.read).length;`
+- WHY: Hardcoded +5 for mock notifications showed 5 unread when there were none
+
+Files Modified:
+- src/store/app-store.ts — 8 initial value changes, 1 function change (addNotification ID generation)
+- src/app/page.tsx — 1 line change (notification count)
+
+All type definitions, interfaces, and action functions preserved exactly as-is.
+
+Stage Summary:
+- All fake/demo data removed from Zustand store initial state
+- App now starts with a clean slate — no user, no projects, no chat history, no notifications
+- SSR hydration mismatch risk eliminated (no Date.now() in initial state)
+- addNotification now uses crypto.randomUUID() instead of Date.now() for SSR-safe IDs
+- Notification count no longer artificially inflated with +5
+- Lint: no new errors introduced in modified files
+
+---
+Task ID: block-2
+Agent: Production Hardening (Block 2 — App Entry Point: Smart Routing Based on Auth State)
+Task: Add session restore on mount, persist userId after onboarding, clear session on disconnect, remove SDK attribution
+
+Work Log:
+
+### CHANGE 2.1 — Session Restore on Mount (src/app/page.tsx)
+- Added `setUser`, `setGithubUser`, `setIsGithubConnected`, `setProjects`, `user` to useAppStore destructuring
+- Added `sessionLoading` state (initialized to `true`)
+- Added session restore useEffect as the FIRST effect in the component (before keyboard shortcuts)
+  - Checks `localStorage.getItem('gitdeploy_user_id')` — if missing, routes to onboarding
+  - Fetches `/api/user` with `x-user-id` header to restore session
+  - On 401/404/error: clears localStorage and routes to onboarding
+  - On success: restores user, github connection state, and fetches real projects from `/api/projects/list`
+  - Routes to dashboard on successful restore, onboarding on failure
+  - `sessionLoading` set to false in finally block
+- Added session loading screen before main return statement
+  - Centered layout with Sparkles icon in gradient badge
+  - Three animated bouncing dots with staggered delays
+  - Dark background matching app theme (#0d1117)
+
+### CHANGE 2.2 — Persist userId After Successful Onboarding (src/components/onboarding-wizard.tsx)
+- Added `localStorage.setItem('gitdeploy_user_id', data.user.id)` right after `setIsGithubConnected(true)`
+  - Guarded with `typeof window !== 'undefined'` for SSR safety
+  - Also checks `data.user?.id` exists before storing
+- Auto-redirect setTimeout already existed (2500ms delay → dashboard)
+  - Verified it was already in place, no change needed
+
+### CHANGE 2.3 — Clear Session on Disconnect (src/components/settings-view.tsx)
+- Added `localStorage.removeItem('gitdeploy_user_id')` in `handleDisconnect` function
+  - Placed after `setIsGithubConnected(false)` and before `setGithubInfo({ connected: false })`
+  - Ensures user is routed back to onboarding on next page load
+
+### CHANGE 11.1 — Remove SDK Attribution from Footer (src/app/page.tsx)
+- Changed "Powered by z-ai-web-dev-sdk" → "Powered by AI"
+
+### Lint
+- Removed unused eslint-disable directive for `react-hooks/exhaustive-deps` on the session restore useEffect
+- No new lint errors introduced in any modified file
+- Dev server compiles and serves 200 on port 3000
+
+Stage Summary:
+- Session persistence flow complete: onboarding saves userId → page.tsx restores on refresh → disconnect clears it
+- Loading screen shows during session check (prevents flash of wrong view)
+- Footer attribution sanitized (no SDK mention)
+- All 3 files modified with targeted edits only
+- Zero new lint errors
+
+---
+Task ID: block-3
+Agent: Production Hardening (Block 3 — Dashboard: Replace Hardcoded Values With Real Data)
+Task: Replace every hardcoded value in dashboard-view.tsx with real data from the store/API
+
+Work Log:
+- Read worklog.md — reviewed full project history
+- Read dashboard-view.tsx — identified all 7 hardcoded sections to fix
+- Made 7 targeted edits to dashboard-view.tsx
+
+### CHANGE 3.1 — Fix fetchProjects to REPLACE, not merge with demo data
+- Changed `if (data.projects && data.projects.length > 0) { setProjects(...) }` to always call `setProjects((data.projects || []).map(...))`
+- Removed comment "// If API returns empty, keep the store's demo/seed data — don't overwrite with []"
+- Now when API returns empty array, projects are properly cleared instead of keeping stale demo data
+
+### CHANGE 3.2 — Replace hardcoded stat bar
+- Added `chatMessages` and `builderChat` to useAppStore() destructuring
+- Added computed values: `buildsToday`, `deploysThisWeek`, `aiMessagesCount`
+- buildsToday counts deployments where startedAt >= today midnight
+- deploysThisWeek counts deployments where startedAt >= 7 days ago
+- aiMessagesCount = chatMessages.length + builderChat.length
+- Replaced hardcoded stat values: 7→buildsToday, 25→deploysThisWeek, 142→aiMessagesCount, '99.9%'→conditional based on liveCount
+
+### CHANGE 3.3 — Remove "Team Activity" section
+- Replaced entire Team Activity Card (with fake names: Sarah Chen, Alex Rivera, Jordan Lee, etc.) with "Recent Activity" section
+- New section derives real data from projects' deployments
+- Empty state: "No activity yet. Build your first project to get started."
+- Shows real deployment events sorted by startedAt with project name, status, triggeredBy, date
+- Uses CheckCircle for completed, AlertCircle for failed, Rocket for in-progress
+
+### CHANGE 3.4 — Remove "Deployment Pipeline" hardcoded section
+- Replaced entire Deployment Pipeline Card (with fake entries: analytics-v3, auth-service, payment-api, etc.) with "Project Pipeline"
+- Groups projects by their real status: building, deploying, live, failed, not_deployed
+- Shows count per status with colored labels and project names under each status
+- Responsive grid: 2 cols mobile, 3 cols sm, 5 cols lg
+
+### CHANGE 3.5 — Remove "Recent Repositories" hardcoded section
+- Replaced entire Recent Repositories Card (with fake repos: gitdeploy-core, dashboard-ui, deploy-agent, etc.) with "Your Repositories"
+- Filters projects that have githubRepoUrl set
+- Shows repo name extracted from URL, description, framework with color dot
+- Empty state: "No repos yet. Deploy a project to create one."
+
+### CHANGE 3.6 — Fix trend percentages in stat cards
+- Removed `trend` and `trendUp` fields from stats array (was: '+12%', '+8%', '-3%', '-15%')
+- Removed the trend badge rendering block (the motion.span with TrendingUp/TrendingDown icons)
+- Changed AnimatedNumber trendUp prop to always true (neutral default)
+
+### CHANGE 3.7 — Fix Week-over-Week comparison section
+- Replaced hardcoded values (47 deploys, 96% success, 142s build time, 4% error rate) with computed real data
+- Computes thisWeek vs lastWeek deployment counts, success rates, avg durations, failed counts
+- All values derived from projects.flatMap(p => p.deployments) with date range filtering
+- Shows "No deployment data yet" when there are no deployments
+- Change percentages calculated dynamically with calcChange helper function
+
+### Cleanup
+- Removed unused imports: TrendingDown, Users (no longer referenced after removing trend badges and Team Activity)
+
+### Verification
+- ESLint on dashboard-view.tsx: zero errors, zero warnings
+- Dev server compiles successfully on port 3000
+
+Stage Summary:
+- All 7 hardcoded sections in dashboard-view.tsx replaced with real data
+- Dashboard now reflects actual project state from the store/API
+- Empty states provided for all sections when no data exists
+- No demo/fake data persists in the dashboard view
+- Lint passes with zero errors for dashboard-view.tsx
+
+---
+Task ID: block-4-8
+Agent: production-hardening
+Task: BLOCK 4 — Replace fake chart data with real data + BLOCK 8 — Fix SSR hydration and production issues
+
+Work Log:
+
+## BLOCK 4 — PROJECT ANALYTICS: Replace Fake Charts With Real Data
+
+### CHANGE 4.1 — project-analytics.tsx
+- Changed component signature from `export function ProjectAnalytics()` to `export function ProjectAnalytics({ projects }: { projects: Project[] })` importing Project type from '@/store/app-store'
+- Removed all module-level chart data constants: `deploymentActivity`, `frameworkDistribution`, `durationTrend`, and computed summary values (`totalDeploys`, `totalSuccessful`, `totalFailed`, `successRate`, `avgDuration`)
+- Replaced with `useMemo` computation inside component (`chartData`) that derives all chart data from the `projects` prop:
+  - **deploymentActivity**: Computed from actual deployment data over last 7 days, filtering by startedAt timestamps
+  - **frameworkDistribution**: Counted from project framework fields with FRAMEWORK_COLORS mapping
+  - **durationTrend**: Average deployment duration per day over last 7 days
+  - **totalDeploys, successRate, failedCount, avgDuration**: Computed from all deployments across all projects
+- Added `useMemo` import
+- Moved `PieTooltip` component outside the main component (renamed to `ChartPieTooltip`) to fix react-hooks/static-components lint error, passing `total` as prop
+- Added empty state before main chart render: shows BarChart3 icon with "No deployment data yet" / "Analytics will appear after your first deployment" messages when `projects.length === 0 || chartData.totalDeploys === 0`
+- Removed hardcoded trend indicators (+18%, +3%, etc.) from summary stats row since they were fake
+
+### CHANGE 4.1b — dashboard-view.tsx
+- Updated `<ProjectAnalytics />` to `<ProjectAnalytics projects={projects} />` on line 1087
+
+## BLOCK 8 — SSR: Fix All Remaining Hydration Sources
+
+### CHANGE 8.1 — sidebar.tsx Math.random() width
+- Replaced `Math.floor(Math.random() * 40) + 50 + '%'` with deterministic WIDTHS array: `['55%','70%','63%','80%','58%','75%','67%']`
+- Uses `WIDTHS[idx % WIDTHS.length]` based on a data-index prop (defaults to 0) to avoid hydration mismatch
+
+### CHANGE 8.3 — Prisma log level in production (db.ts)
+- Changed PrismaClient log level from `process.env.NODE_ENV === 'development' ? ['query'] : []` to `process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']`
+- Ensures query logging in dev, error-only logging in production
+
+### CHANGE 8.4 — Replace Date.now() IDs with crypto.randomUUID()
+Replaced all `Date.now().toString()` and `(Date.now() + N).toString()` ID patterns with `crypto.randomUUID()`:
+
+- **builder-view.tsx** (3 replacements):
+  - Line 624: User message ID
+  - Line 653: Assistant message ID
+  - Line 694: Error message ID
+
+- **chat-view.tsx** (8 replacements):
+  - Line 866: Stopped streaming assistant message ID
+  - Line 882: User message ID
+  - Line 958: Streaming complete assistant message ID
+  - Line 974: Non-streaming fallback assistant message ID
+  - Line 990: Error assistant message ID
+  - Line 1074: New conversation ID (`conv-${Date.now()}` → `conv-${crypto.randomUUID()}`)
+  - Line 1587: Diff approve user message ID
+  - Line 1596: Diff reject user message ID
+
+- **env-manager.tsx** (2 replacements):
+  - Line 116: New variable ID
+  - Line 199: Imported variable ID (was `Date.now().toString() + Math.random().toString(36).slice(2, 8)`)
+
+- **workflow-editor.tsx** (1 replacement):
+  - Line 212: New step ID
+
+- **deploy-view.tsx** (1 replacement):
+  - Line 1597: New webhook ID (`wh${Date.now()}` → `wh-${crypto.randomUUID()}`)
+
+Stage Summary:
+- BLOCK 4: All fake chart data replaced with computed real data from projects prop
+- BLOCK 8: Math.random() in sidebar skeleton replaced with deterministic values
+- BLOCK 8: Prisma production log level set to error-only
+- BLOCK 8: 15 Date.now() ID instances replaced with crypto.randomUUID() across 5 files
+- Lint passes cleanly (no new errors; pre-existing .vercel build artifact errors remain)
+- Dev server compiles successfully on port 3000

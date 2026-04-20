@@ -269,6 +269,7 @@ export function SettingsView() {
       });
       setGithubUser(null);
       setIsGithubConnected(false);
+      localStorage.removeItem('gitdeploy_user_id');
       setGithubInfo({ connected: false });
       toast({ title: 'GitHub disconnected', description: 'Your token has been removed.' });
     } catch {

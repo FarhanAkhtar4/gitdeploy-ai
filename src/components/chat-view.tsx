@@ -863,7 +863,7 @@ export function ChatView() {
     // Save whatever we've streamed so far as a message
     if (streamingContent) {
       addChatMessage({
-        id: (Date.now() + 1).toString(),
+        id: crypto.randomUUID(),
         role: 'assistant',
         content: streamingContent + '\n\n_⏹ Stopped generating_',
         timestamp: new Date().toISOString(),
@@ -879,7 +879,7 @@ export function ChatView() {
     if (!content.trim() || isLoading || isStreaming) return;
 
     const userMsg: ChatMessage = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       role: 'user',
       content: content.trim(),
       timestamp: new Date().toISOString(),
@@ -955,7 +955,7 @@ export function ChatView() {
         // Streaming complete — add final message
         const aiContent = fullContent || 'Sorry, I could not generate a response.';
         addChatMessage({
-          id: (Date.now() + 1).toString(),
+          id: crypto.randomUUID(),
           role: 'assistant',
           content: aiContent,
           timestamp: new Date().toISOString(),
@@ -971,7 +971,7 @@ export function ChatView() {
         const aiContent = data.response || 'Sorry, I could not generate a response.';
 
         addChatMessage({
-          id: (Date.now() + 1).toString(),
+          id: crypto.randomUUID(),
           role: 'assistant',
           content: aiContent,
           timestamp: new Date().toISOString(),
@@ -987,7 +987,7 @@ export function ChatView() {
         // User cancelled — already handled in stopStreaming
       } else {
         addChatMessage({
-          id: (Date.now() + 1).toString(),
+          id: crypto.randomUUID(),
           role: 'assistant',
           content: '⚠️ Error: Could not reach AI service. Please try again.',
           timestamp: new Date().toISOString(),
@@ -1071,7 +1071,7 @@ export function ChatView() {
   // New conversation
   const createNewConversation = useCallback(() => {
     const newConv: ConversationItem = {
-      id: `conv-${Date.now()}`,
+      id: `conv-${crypto.randomUUID()}`,
       title: 'New conversation',
       preview: 'Start a new chat...',
       timestamp: new Date(),
@@ -1584,7 +1584,7 @@ export function ChatView() {
                   language="yaml"
                   onApprove={() => {
                     addChatMessage({
-                      id: Date.now().toString(),
+                      id: crypto.randomUUID(),
                       role: 'user',
                       content: 'APPROVE CHANGE',
                       timestamp: new Date().toISOString(),
@@ -1593,7 +1593,7 @@ export function ChatView() {
                   }}
                   onReject={() => {
                     addChatMessage({
-                      id: Date.now().toString(),
+                      id: crypto.randomUUID(),
                       role: 'user',
                       content: 'Change rejected. Can you suggest an alternative?',
                       timestamp: new Date().toISOString(),

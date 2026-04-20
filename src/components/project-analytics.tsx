@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import {
@@ -30,46 +30,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from 'lucide-react';
-
-/* ============================================================
-   Sample Data
-   ============================================================ */
-const deploymentActivity = [
-  { day: 'Mon', deployments: 3, successful: 3, failed: 0 },
-  { day: 'Tue', deployments: 5, successful: 4, failed: 1 },
-  { day: 'Wed', deployments: 2, successful: 2, failed: 0 },
-  { day: 'Thu', deployments: 7, successful: 6, failed: 1 },
-  { day: 'Fri', deployments: 4, successful: 4, failed: 0 },
-  { day: 'Sat', deployments: 1, successful: 1, failed: 0 },
-  { day: 'Sun', deployments: 3, successful: 2, failed: 1 },
-];
-
-const frameworkDistribution = [
-  { name: 'Next.js', value: 45, color: '#58a6ff' },
-  { name: 'React', value: 25, color: '#61dafb' },
-  { name: 'Vue', value: 15, color: '#42b883' },
-  { name: 'Express', value: 10, color: '#8b949e' },
-  { name: 'FastAPI', value: 5, color: '#009688' },
-];
-
-const durationTrend = [
-  { day: 'Mon', avg: 145 },
-  { day: 'Tue', avg: 132 },
-  { day: 'Wed', avg: 168 },
-  { day: 'Thu', avg: 120 },
-  { day: 'Fri', avg: 155 },
-  { day: 'Sat', avg: 98 },
-  { day: 'Sun', avg: 142 },
-];
-
-/* ============================================================
-   Computed Summary Values
-   ============================================================ */
-const totalDeploys = deploymentActivity.reduce((a, d) => a + d.deployments, 0);
-const totalSuccessful = deploymentActivity.reduce((a, d) => a + d.successful, 0);
-const totalFailed = deploymentActivity.reduce((a, d) => a + d.failed, 0);
-const successRate = Math.round((totalSuccessful / totalDeploys) * 100);
-const avgDuration = Math.round(durationTrend.reduce((a, d) => a + d.avg, 0) / durationTrend.length);
+import type { Project } from '@/store/app-store';
 
 /* ============================================================
    Custom Tooltip Components
@@ -145,11 +106,10 @@ function DurationTooltip({ active, payload, label }: { active?: boolean; payload
   );
 }
 
-function PieTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number; payload: { color: string } }> }) {
+function ChartPieTooltip({ active, payload, total }: { active?: boolean; payload?: Array<{ name: string; value: number; payload: { color: string } }>; total: number }) {
   if (!active || !payload || !payload.length) return null;
   const item = payload[0];
-  const total = frameworkDistribution.reduce((a, b) => a + b.value, 0);
-  const pct = Math.round((item.value / total) * 100);
+  const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
   return (
     <div
       className="rounded-xl px-4 py-3 text-xs shadow-2xl"
@@ -202,14 +162,78 @@ const chartCardVariants = {
 /* ============================================================
    Main Component
    ============================================================ */
-export function ProjectAnalytics() {
+export function ProjectAnalytics({ projects }: { projects: Project[] }) {
   const [activePieIndex, setActivePieIndex] = useState<number | null>(null);
 
-  const cardStyle: React.CSSProperties = {
-    backgroundColor: '#161b22',
-    borderColor: '#30363d',
-    borderRadius: '12px',
-  };
+  const chartData = useMemo(() => {
+    const allDeployments = projects.flatMap(p =>
+      (p.deployments || []).map(d => ({ ...d, projectName: p.name }))
+    );
+
+    // Last 7 days activity
+    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const deploymentActivity = days.map((day, i) => {
+      const dayStart = new Date();
+      dayStart.setDate(dayStart.getDate() - (6 - i));
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setHours(23, 59, 59, 999);
+      const dayDeploys = allDeployments.filter(d => {
+        const t = new Date(d.startedAt).getTime();
+        return t >= dayStart.getTime() && t <= dayEnd.getTime();
+      });
+      return {
+        day,
+        deployments: dayDeploys.length,
+        successful: dayDeploys.filter(d => d.status === 'completed').length,
+        failed: dayDeploys.filter(d => d.status === 'failed').length,
+      };
+    });
+
+    const frameworkCounts: Record<string, number> = {};
+    projects.forEach(p => {
+      const fw = p.framework || 'unknown';
+      frameworkCounts[fw] = (frameworkCounts[fw] || 0) + 1;
+    });
+    const FRAMEWORK_COLORS: Record<string, string> = {
+      nextjs: '#58a6ff', react: '#61dafb', vue: '#42b883',
+      express: '#8b949e', fastapi: '#009688', unknown: '#6e7681',
+    };
+    const frameworkDistribution = projects.length > 0
+      ? Object.entries(frameworkCounts).map(([name, value]) => ({
+          name: name.charAt(0).toUpperCase() + name.slice(1),
+          value: Math.round((value / projects.length) * 100),
+          color: FRAMEWORK_COLORS[name] || '#6e7681',
+        }))
+      : [];
+
+    const totalDeploys = allDeployments.length;
+    const successCount = allDeployments.filter(d => d.status === 'completed').length;
+    const successRate = totalDeploys > 0 ? Math.round((successCount / totalDeploys) * 100) : 0;
+    const failedCount = totalDeploys - successCount;
+    const avgDuration = allDeployments.length > 0
+      ? Math.round(allDeployments.reduce((acc, d) => acc + (d.durationMs || 0), 0) / allDeployments.length / 1000)
+      : 0;
+
+    // Duration trend: average duration per day over last 7 days
+    const durationTrend = days.map((day, i) => {
+      const dayStart = new Date();
+      dayStart.setDate(dayStart.getDate() - (6 - i));
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setHours(23, 59, 59, 999);
+      const dayDeploys = allDeployments.filter(d => {
+        const t = new Date(d.startedAt).getTime();
+        return t >= dayStart.getTime() && t <= dayEnd.getTime();
+      });
+      const dayAvg = dayDeploys.length > 0
+        ? Math.round(dayDeploys.reduce((acc, d) => acc + (d.durationMs || 0), 0) / dayDeploys.length / 1000)
+        : 0;
+      return { day, avg: dayAvg };
+    });
+
+    return { deploymentActivity, frameworkDistribution, durationTrend, totalDeploys, successRate, failedCount, avgDuration };
+  }, [projects]);
 
   const onPieEnter = (_: unknown, index: number) => {
     setActivePieIndex(index);
@@ -218,6 +242,51 @@ export function ProjectAnalytics() {
   const onPieLeave = () => {
     setActivePieIndex(null);
   };
+
+  const frameworkTotal = chartData.frameworkDistribution.reduce((a, b) => a + b.value, 0);
+
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: '#161b22',
+    borderColor: '#30363d',
+    borderRadius: '12px',
+  };
+
+  // Empty state
+  if (projects.length === 0 || chartData.totalDeploys === 0) {
+    return (
+      <div className="space-y-5">
+        {/* Section Header */}
+        <motion.div
+          className="flex items-center justify-between"
+          initial={{ opacity: 0, x: -15 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(88, 166, 255, 0.12)' }}
+            >
+              <BarChart3 className="w-4 h-4" style={{ color: '#58a6ff' }} />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold" style={{ color: '#e6edf3' }}>Project Analytics</h2>
+              <p className="text-[10px]" style={{ color: '#484f58' }}>Deployment insights and performance metrics</p>
+            </div>
+          </div>
+        </motion.div>
+        <div className="text-center py-12">
+          <BarChart3 className="w-10 h-10 mx-auto mb-3" style={{ color: '#30363d' }} />
+          <p className="text-sm font-medium" style={{ color: '#8b949e' }}>
+            No deployment data yet
+          </p>
+          <p className="text-xs mt-1" style={{ color: '#6e7681' }}>
+            Analytics will appear after your first deployment
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -258,10 +327,10 @@ export function ProjectAnalytics() {
         transition={{ delay: 0.1, duration: 0.4 }}
       >
         {[
-          { label: 'Total Deploys', value: totalDeploys, color: '#58a6ff', icon: Activity, trend: '+18%', up: true },
-          { label: 'Success Rate', value: `${successRate}%`, color: '#3fb950', icon: Zap, trend: '+3%', up: true },
-          { label: 'Failed', value: totalFailed, color: '#f85149', icon: ArrowDownRight, trend: '-25%', up: false },
-          { label: 'Avg Duration', value: `${avgDuration}s`, color: '#e3b341', icon: Clock, trend: '-8%', up: true },
+          { label: 'Total Deploys', value: chartData.totalDeploys, color: '#58a6ff', icon: Activity },
+          { label: 'Success Rate', value: `${chartData.successRate}%`, color: '#3fb950', icon: Zap },
+          { label: 'Failed', value: chartData.failedCount, color: '#f85149', icon: ArrowDownRight },
+          { label: 'Avg Duration', value: `${chartData.avgDuration}s`, color: '#e3b341', icon: Clock },
         ].map((stat, i) => (
           <motion.div
             key={stat.label}
@@ -279,15 +348,6 @@ export function ProjectAnalytics() {
             >
               <div className="flex items-center justify-between mb-2">
                 <stat.icon className="w-3.5 h-3.5" style={{ color: stat.color }} />
-                <span
-                  className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
-                  style={{
-                    backgroundColor: stat.up ? 'rgba(63,185,80,0.12)' : 'rgba(248,81,73,0.12)',
-                    color: stat.up ? '#3fb950' : '#f85149',
-                  }}
-                >
-                  {stat.trend}
-                </span>
               </div>
               <p className="text-xl font-bold" style={{ color: stat.color }}>{stat.value}</p>
               <p className="text-[10px] mt-0.5" style={{ color: '#8b949e' }}>{stat.label}</p>
@@ -328,7 +388,7 @@ export function ProjectAnalytics() {
               <CardContent className="pt-0 px-5 pb-5">
                 <div className="h-52">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={deploymentActivity} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                    <AreaChart data={chartData.deploymentActivity} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                       <defs>
                         <linearGradient id="deployGradientNew" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#3fb950" stopOpacity={0.35} />
@@ -407,7 +467,7 @@ export function ProjectAnalytics() {
                   </div>
                   <div className="ml-auto flex items-center gap-1">
                     <span className="text-[10px]" style={{ color: '#8b949e' }}>Total:</span>
-                    <span className="text-xs font-bold" style={{ color: '#3fb950' }}>{totalDeploys}</span>
+                    <span className="text-xs font-bold" style={{ color: '#3fb950' }}>{chartData.totalDeploys}</span>
                   </div>
                 </div>
               </CardContent>
@@ -437,7 +497,7 @@ export function ProjectAnalytics() {
               <CardContent className="pt-0 px-5 pb-5">
                 <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={durationTrend} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                    <LineChart data={chartData.durationTrend} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                       <defs>
                         <linearGradient id="durationGradientNew" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#e3b341" stopOpacity={0.25} />
@@ -498,13 +558,15 @@ export function ProjectAnalytics() {
                     <span className="text-[10px]" style={{ color: '#8b949e' }}>Average Duration</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <ArrowUpRight className="w-3 h-3" style={{ color: '#3fb950' }} />
-                      <span className="text-[10px]" style={{ color: '#3fb950' }}>Fastest: {Math.min(...durationTrend.map(d => d.avg))}s</span>
-                    </div>
+                    {chartData.durationTrend.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <ArrowUpRight className="w-3 h-3" style={{ color: '#3fb950' }} />
+                        <span className="text-[10px]" style={{ color: '#3fb950' }}>Fastest: {Math.min(...chartData.durationTrend.map(d => d.avg).filter(v => v > 0))}s</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-1">
                       <span className="text-[10px]" style={{ color: '#8b949e' }}>Avg:</span>
-                      <span className="text-xs font-bold" style={{ color: '#e3b341' }}>{avgDuration}s</span>
+                      <span className="text-xs font-bold" style={{ color: '#e3b341' }}>{chartData.avgDuration}s</span>
                     </div>
                   </div>
                 </div>
@@ -540,7 +602,7 @@ export function ProjectAnalytics() {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={frameworkDistribution}
+                        data={chartData.frameworkDistribution}
                         cx="50%"
                         cy="50%"
                         labelLine={false}
@@ -555,7 +617,7 @@ export function ProjectAnalytics() {
                         onMouseEnter={onPieEnter}
                         onMouseLeave={onPieLeave}
                       >
-                        {frameworkDistribution.map((entry, index) => (
+                        {chartData.frameworkDistribution.map((entry, index) => (
                           <Cell
                             key={`cell-${index}`}
                             fill={entry.color}
@@ -571,7 +633,7 @@ export function ProjectAnalytics() {
                           />
                         ))}
                       </Pie>
-                      <Tooltip content={<PieTooltip />} />
+                      <Tooltip content={<ChartPieTooltip total={frameworkTotal} />} />
                     </PieChart>
                   </ResponsiveContainer>
                   {/* Center Label */}
@@ -580,14 +642,14 @@ export function ProjectAnalytics() {
                     style={{ marginTop: '-4px' }}
                   >
                     <p className="text-2xl font-bold" style={{ color: '#e6edf3' }}>
-                      {frameworkDistribution.reduce((a, b) => a + b.value, 0)}
+                      {chartData.frameworkDistribution.reduce((a, b) => a + b.value, 0)}
                     </p>
                     <p className="text-[9px]" style={{ color: '#8b949e' }}>PROJECTS</p>
                   </div>
                 </div>
                 {/* Legend */}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2 pt-2" style={{ borderTop: '1px solid #21262d' }}>
-                  {frameworkDistribution.map((fw) => (
+                  {chartData.frameworkDistribution.map((fw) => (
                     <div
                       key={fw.name}
                       className="flex items-center gap-1.5 group cursor-default"
@@ -628,7 +690,7 @@ export function ProjectAnalytics() {
               <CardContent className="pt-0 px-5 pb-5">
                 <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={deploymentActivity} margin={{ top: 10, right: 10, left: -15, bottom: 0 }} barGap={2}>
+                    <BarChart data={chartData.deploymentActivity} margin={{ top: 10, right: 10, left: -15, bottom: 0 }} barGap={2}>
                       <defs>
                         <linearGradient id="successBarGradNew" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#3fb950" stopOpacity={1} />
@@ -691,11 +753,11 @@ export function ProjectAnalytics() {
                     <span
                       className="text-sm font-bold px-2 py-0.5 rounded-md"
                       style={{
-                        color: successRate >= 90 ? '#3fb950' : successRate >= 70 ? '#e3b341' : '#f85149',
-                        backgroundColor: successRate >= 90 ? 'rgba(63,185,80,0.12)' : successRate >= 70 ? 'rgba(227,179,65,0.12)' : 'rgba(248,81,73,0.12)',
+                        color: chartData.successRate >= 90 ? '#3fb950' : chartData.successRate >= 70 ? '#e3b341' : '#f85149',
+                        backgroundColor: chartData.successRate >= 90 ? 'rgba(63,185,80,0.12)' : chartData.successRate >= 70 ? 'rgba(227,179,65,0.12)' : 'rgba(248,81,73,0.12)',
                       }}
                     >
-                      {successRate}%
+                      {chartData.successRate}%
                     </span>
                   </div>
                 </div>

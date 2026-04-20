@@ -9,13 +9,18 @@
  * Output format: { encrypted, iv, authTag } as hex strings.
  */
 
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'gitdeploy-ai-default-key-change-in-prod-32ch';
 const IV_LENGTH = 12; // 12 bytes for GCM (Web Crypto standard)
 const TAG_LENGTH = 16; // 16 bytes auth tag
 
 function getKeyBytes(): Uint8Array {
-  const key = ENCRYPTION_KEY.padEnd(32, '0').slice(0, 32);
-  return new TextEncoder().encode(key);
+  const key = process.env.ENCRYPTION_KEY;
+  if (!key || key.length < 32) {
+    throw new Error(
+      '[GitDeploy AI] ENCRYPTION_KEY env var is missing or too short (need 32+ chars). ' +
+      'Generate one with: openssl rand -base64 32'
+    );
+  }
+  return new TextEncoder().encode(key.slice(0, 32));
 }
 
 function hexToBytes(hex: string): Uint8Array {

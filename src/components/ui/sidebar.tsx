@@ -606,9 +606,13 @@ function SidebarMenuSkeleton({
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean
 }) {
-  // Random width between 50 to 90%.
+  // Deterministic widths to avoid hydration mismatch
+  const WIDTHS = ['55%','70%','63%','80%','58%','75%','67%']
   const width = React.useMemo(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`
+    // Use a stable index based on the component's position in the parent
+    const siblings = (props as Record<string, unknown>)?.['data-index']
+    const idx = typeof siblings === 'number' ? siblings : 0
+    return WIDTHS[idx % WIDTHS.length]
   }, [])
 
   return (
